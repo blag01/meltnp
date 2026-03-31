@@ -1,14 +1,18 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "neural-processes-distribution-shift"
 version = "0.1.0"
-description = "Research scaffold for Neural Processes under training-time and test-time misspecification."
+description = "Research-first uv scaffold for Neural Processes under distribution shift."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "numpy>=2.2",
+    "torch>=2.7",
+    "matplotlib>=3.10",
+]
 
 [dependency-groups]
 dev = [
@@ -16,13 +20,13 @@ dev = [
 ]
 
 [tool.uv]
-package = true
+package = false
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.uv.scripts]
+train = "python scripts/train.py"
+viz = "python scripts/visualize.py"
+sweep = "python scripts/sweep.py"
+test = "pytest"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

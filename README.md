@@ -1,11 +1,12 @@
 # Neural Processes under Distribution Shift
 
-Simple `uv` project with a `src/` package and `scripts/` entrypoints.
+Simple `uv` project optimized for research iteration.
 
 ## Layout
 
-- `src/np_shift/`
-- `scripts/`
+- `src/np_shift/` reusable model components
+- `scripts/` runnable experiments
+- `docs/` notes
 - `tests/`
 
 ## Commands
