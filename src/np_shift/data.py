@@ -49,7 +49,7 @@ class GPData:
         x = torch.empty(self.batch_size, total_points, 1).uniform_(*self.x_range)
 
         K = rbf_kernel(x, x, length_scale=self.length_scale)
-        K = K + torch.eye(total_points).unsqueeze(0) * 1e-6
+        K = K + torch.eye(total_points).unsqueeze(0) * 1e-4
         L = torch.linalg.cholesky(K)
         y = torch.matmul(L, torch.randn(self.batch_size, total_points, 1))
 

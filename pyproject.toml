@@ -22,10 +22,5 @@ dev = [
 [tool.uv]
 package = false
 
-[tool.uv.scripts]
-train = "python scripts/train.py"
-sweep = "python scripts/sweep.py"
-test = "pytest"
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]

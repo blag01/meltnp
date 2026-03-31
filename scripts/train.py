@@ -1,7 +1,13 @@
 import argparse
 from pathlib import Path
+import sys
 import torch
 from torch import optim
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 from np_shift import AttentionNeuralProcess, GPData, SinusoidData, add_gaussian_noise, apply_bias_shift
 from np_shift.viz import plot_np_task

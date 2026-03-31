@@ -1,6 +1,13 @@
 import subprocess
 import sys
+import os
 from pathlib import Path
+
+# Add src to PYTHONPATH so subprocesses can find the np_shift package
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+os.environ["PYTHONPATH"] = str(SRC_DIR) + os.pathsep + os.environ.get("PYTHONPATH", "")
+
 
 def run_experiment(dataset: str, robust: bool, epochs: int = 1000):
     mode = "robust" if robust else "vanilla"
