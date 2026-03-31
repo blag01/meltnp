@@ -24,7 +24,6 @@ package = false
 
 [tool.uv.scripts]
 train = "python scripts/train.py"
-viz = "python scripts/visualize.py"
 sweep = "python scripts/sweep.py"
 test = "pytest"
 
