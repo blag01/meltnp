@@ -8,6 +8,7 @@ from .data import (
     apply_bias_shift,
     heteroskedastic_noise,
     apply_warp_shift,
+    inject_outliers,
 )
 
 from .benchmark import evaluate_model, run_stress_test, plot_robustness_curves

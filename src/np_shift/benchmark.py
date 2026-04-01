@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-from .data import GPData, SinusoidData, add_gaussian_noise, apply_bias_shift, heteroskedastic_noise, apply_warp_shift
+from .data import GPData, SinusoidData, add_gaussian_noise, apply_bias_shift, heteroskedastic_noise, apply_warp_shift, inject_outliers
 
 from .test_time import adapt_and_predict_mlp, adapt_and_predict_reweight, adapt_and_predict_latent
 
@@ -69,6 +69,8 @@ def run_stress_test(model, dataset_name, shift_type, adapt_method=None):
             fn = lambda x, y: heteroskedastic_noise(x, y, scale_factor=val)
         elif shift_type == "warp":
             fn = lambda x, y: apply_warp_shift(x, y, warp_power=1.0 + val)
+        elif shift_type == "outlier":
+            fn = lambda x, y: inject_outliers(x, y, fraction=0.3, magnitude=val * 5.0)
         else:
             fn = None
             

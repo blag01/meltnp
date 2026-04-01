@@ -38,6 +38,13 @@ def apply_warp_shift(x: Tensor, y: Tensor, warp_power: float = 3.0) -> Tensor:
     return torch.sign(y) * (torch.abs(y) ** warp_power)
 
 
+def inject_outliers(x: Tensor, y: Tensor, fraction: float = 0.3, magnitude: float = 5.0) -> Tensor:
+    """Corrupt a random fraction of context points with extreme values."""
+    mask = torch.rand_like(y) < fraction
+    outlier_vals = torch.randn_like(y) * magnitude
+    return torch.where(mask, y + outlier_vals, y)
+
+
 def rbf_kernel(x1: Tensor, x2: Tensor, length_scale: float = 0.5) -> Tensor:
     """Compute RBF kernel between x1 and x2 [B, N, D] and [B, M, D] -> [B, N, M]."""
     dist_sq = torch.cdist(x1, x2).pow(2)
