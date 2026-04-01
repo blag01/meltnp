@@ -1,0 +1,130 @@
+import torch
+import torch.nn as nn
+from torch import optim
+from .data import NPBatch
+
+class DenoisingMLP(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(2, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1)
+        )
+        # Initialize output layer to emit zeros initially (identity mapping)
+        nn.init.zeros_(self.net[2].weight)
+        nn.init.zeros_(self.net[2].bias)
+
+    def forward(self, x, y):
+        inputs = torch.cat([x, y], dim=-1)
+        return self.net(inputs)
+
+def nll_loss(mean, var, target_y):
+    """Gaussian NLL."""
+    return (0.5 * torch.log(2 * torch.pi * var) + 0.5 * (target_y - mean)**2 / var).mean()
+
+def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100):
+    """Parameterized Denoising Network"""
+    model.eval()
+    
+    with torch.enable_grad():
+        denoiser = DenoisingMLP()
+        optimizer = optim.Adam(denoiser.parameters(), lr=0.01)
+
+        num_ctx = batch.context_x.size(1)
+        split_idx = num_ctx // 2
+        
+        ctx_x_A = batch.context_x[:, :split_idx, :]
+        ctx_y_A = batch.context_y[:, :split_idx, :]
+        ctx_x_B = batch.context_x[:, split_idx:, :]
+        ctx_y_B = batch.context_y[:, split_idx:, :]
+
+        for step in range(num_steps):
+            optimizer.zero_grad()
+            shift_A = denoiser(ctx_x_A, ctx_y_A)
+            shift_B = denoiser(ctx_x_B, ctx_y_B)
+            
+            denoised_y_A = ctx_y_A - shift_A
+            denoised_y_B = ctx_y_B - shift_B
+            
+            out = model(ctx_x_A, denoised_y_A, ctx_x_B)
+            loss = nll_loss(out.mean, out.variance, denoised_y_B)
+            loss.backward()
+            optimizer.step()
+
+    with torch.no_grad():
+        final_shift = denoiser(batch.context_x, batch.context_y)
+        final_denoised_context = batch.context_y - final_shift
+        out_after = model(batch.context_x, final_denoised_context, batch.target_x)
+        target_shift = denoiser(batch.target_x, out_after.mean)
+        final_mean = out_after.mean + target_shift
+        
+    return final_mean, out_after.variance
+
+
+def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100):
+    """Context Reweighting"""
+    model.eval()
+    num_ctx = batch.context_x.size(1)
+    split_idx = num_ctx // 2
+    
+    with torch.enable_grad():
+        # Initialize weights near 1.0 (logit=3.0 -> sigmoid=0.95)
+        logit_w = torch.full((batch.context_x.size(0), num_ctx, 1), 3.0, requires_grad=True)
+        optimizer = optim.Adam([logit_w], lr=0.1)
+        
+        ctx_x_A = batch.context_x[:, :split_idx, :]
+        ctx_y_A = batch.context_y[:, :split_idx, :]
+        ctx_x_B = batch.context_x[:, split_idx:, :]
+        ctx_y_B = batch.context_y[:, split_idx:, :]
+
+        for step in range(num_steps):
+            optimizer.zero_grad()
+            w = torch.sigmoid(logit_w)
+            w_A = w[:, :split_idx, :]
+            w_B = w[:, split_idx:, :]
+            
+            # Bidirectional cross-prediction
+            out_B = model(ctx_x_A, ctx_y_A, ctx_x_B, context_weights=w_A)
+            out_A = model(ctx_x_B, ctx_y_B, ctx_x_A, context_weights=w_B)
+            
+            loss = nll_loss(out_B.mean, out_B.variance, ctx_y_B) + nll_loss(out_A.mean, out_A.variance, ctx_y_A)
+            loss.backward()
+            optimizer.step()
+
+    with torch.no_grad():
+        final_w = torch.sigmoid(logit_w)
+        out_after = model(batch.context_x, batch.context_y, batch.target_x, context_weights=final_w)
+        return out_after.mean, out_after.variance
+
+
+def adapt_and_predict_latent(model, batch: NPBatch, num_steps: int = 100):
+    """Latent Reprojection"""
+    model.eval()
+    num_ctx = batch.context_x.size(1)
+    split_idx = num_ctx // 2
+    
+    with torch.enable_grad():
+        latent_shift = torch.zeros(batch.context_x.size(0), num_ctx, model.representation_dim, requires_grad=True)
+        optimizer = optim.Adam([latent_shift], lr=0.05)
+        
+        ctx_x_A = batch.context_x[:, :split_idx, :]
+        ctx_y_A = batch.context_y[:, :split_idx, :]
+        ctx_x_B = batch.context_x[:, split_idx:, :]
+        ctx_y_B = batch.context_y[:, split_idx:, :]
+
+        for step in range(num_steps):
+            optimizer.zero_grad()
+            shift_A = latent_shift[:, :split_idx, :]
+            shift_B = latent_shift[:, split_idx:, :]
+            
+            out_B = model(ctx_x_A, ctx_y_A, ctx_x_B, latent_value_shift=shift_A)
+            out_A = model(ctx_x_B, ctx_y_B, ctx_x_A, latent_value_shift=shift_B)
+            
+            loss = nll_loss(out_B.mean, out_B.variance, ctx_y_B) + nll_loss(out_A.mean, out_A.variance, ctx_y_A)
+            loss.backward()
+            optimizer.step()
+
+    with torch.no_grad():
+        out_after = model(batch.context_x, batch.context_y, batch.target_x, latent_value_shift=latent_shift)
+        return out_after.mean, out_after.variance

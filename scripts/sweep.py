@@ -1,34 +1,78 @@
 import subprocess
 import sys
 import os
+import torch
 from pathlib import Path
+import matplotlib.pyplot as plt
 
-# Add src to PYTHONPATH so subprocesses can find the np_shift package
+# Add src to PYTHONPATH so we can import np_shift
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
 os.environ["PYTHONPATH"] = str(SRC_DIR) + os.pathsep + os.environ.get("PYTHONPATH", "")
 
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
-def run_experiment(dataset: str, robust: bool, epochs: int = 1000):
-    mode = "robust" if robust else "vanilla"
-    output_dir = Path(f"results/{dataset}_{mode}")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    weights_path = output_dir / "weights.pt"
-    
-    cmd = [
-        sys.executable, "scripts/train.py",
-        "--dataset", dataset,
-        "--epochs", str(epochs),
-        "--output", str(weights_path)
-    ]
-    if robust:
-        cmd.append("--robust")
+from np_shift import AttentionNeuralProcess, run_stress_test, plot_robustness_curves
+
+
+def run_training_phase(experiments):
+    """Phase 1: Train all models."""
+    for dataset, robust in experiments:
+        mode = "robust" if robust else "vanilla"
+        output_dir = Path(f"results/{dataset}_{mode}")
+        output_dir.mkdir(parents=True, exist_ok=True)
         
-    print(f"\n>>> Starting Experiment: {dataset} ({mode})")
-    subprocess.run(cmd, check=True)
-    print(f">>> Finished {dataset} ({mode}). Results in {output_dir}/")
+        weights_path = output_dir / "weights.pt"
+        
+        cmd = [
+            sys.executable, "scripts/train.py",
+            "--dataset", dataset,
+            "--epochs", "1000",
+            "--output", str(weights_path)
+        ]
+        if robust:
+            cmd.append("--robust")
+            
+        print(f"\n>>> [Train] {dataset} ({mode})")
+        subprocess.run(cmd, check=True)
 
+def run_benchmarking_phase(experiments):
+    """Phase 2 & 3: Benchmark and Report."""
+    print("\nStarting scientific benchmarking phase...")
+    shift_types = ["noise", "bias", "hetero", "warp"]
+    all_results = {st: {} for st in shift_types}
+    
+    for dataset, robust in experiments:
+        mode = "robust" if robust else "vanilla"
+        model_name = f"{dataset}_{mode}"
+        weights_path = Path(f"results/{dataset}_{mode}/weights.pt")
+        
+        if not weights_path.exists():
+            continue
+            
+        model = AttentionNeuralProcess()
+        model.load_state_dict(torch.load(weights_path, weights_only=True))
+        model.eval()
+        
+        print(f"Stress-testing model: {model_name}...")
+        for st in shift_types:
+            all_results[st][model_name] = run_stress_test(model, dataset, st)
+            
+        # Add TTA tracks for vanilla models to compare against explicitly robust ones
+        if not robust:
+            for tta_method in ["mlp", "reweight", "latent"]:
+                tta_name = f"{model_name}_tta_{tta_method}"
+                print(f"Stress-testing model: {tta_name} (with inference-time optimization)...")
+                for st in shift_types:
+                    all_results[st][tta_name] = run_stress_test(model, dataset, st, adapt_method=tta_method)
+
+    # Generate comparative plots
+    print("Generating Comparative Robustness Curves...")
+    for st in shift_types:
+        plot_dir = Path(f"results/plots/{st}")
+        plot_robustness_curves(all_results[st], str(plot_dir))
+        print(f"[{st.upper()}] Scientific reports generated in {plot_dir}/")
 
 def main():
     experiments = [
@@ -38,15 +82,10 @@ def main():
         ("sinusoid", True),
     ]
     
-    print(f"Starting sweep of {len(experiments)} experiments...")
-    
-    for dataset, robust in experiments:
-        try:
-            run_experiment(dataset, robust, epochs=1000)
-        except Exception as e:
-            print(f"!!! Experiment failed: {dataset} (robust={robust}): {e}")
+    run_training_phase(experiments)
+    run_benchmarking_phase(experiments)
 
-    print("\nSweep complete! Check the 'results/' directory for weights and plots.")
+    print("\nSweep Complete! Results including master COMPARISON are in 'results/'")
 
 
 if __name__ == "__main__":

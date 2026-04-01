@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import torch
+import numpy as np
 from torch import Tensor
 
 def plot_np_task(
@@ -9,6 +10,7 @@ def plot_np_task(
     target_y_true: Tensor | None,
     pred_mean: Tensor,
     pred_var: Tensor,
+    context_y_clean: Tensor | None = None,
     title: str = "Neural Process Prediction",
     save_path: str | None = None,
 ):
@@ -35,8 +37,15 @@ def plot_np_task(
     plt.fill_between(tx, pm - 2*ps, pm + 2*ps, color='C0', alpha=0.2, label='2σ Uncertainty')
     plt.plot(tx, pm, 'C0', lw=2, label='Predicted Mean')
     
-    # Plot context points
-    plt.scatter(cx, cy, c='black', marker='x', s=50, zorder=10, label='Context Points')
+    # Plot clean context points as ghosts if they differ from corrupted ones
+    if context_y_clean is not None:
+        cy_clean = context_y_clean[0, :, 0].cpu().numpy()
+        if not np.allclose(cy, cy_clean):
+            plt.scatter(cx, cy_clean, c='black', marker='o', alpha=0.3, s=30, label='Clean Context (unseen)')
+
+    # Plot corrupted context points
+    plt.scatter(cx, cy, c='red' if context_y_clean is not None else 'black', 
+                marker='x', s=50, zorder=10, label='Observed Context (Shifted)' if context_y_clean is not None else 'Context Points')
     
     plt.title(title)
     plt.xlabel("x")

@@ -3,24 +3,39 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 from dataclasses import dataclass
-
+from abc import ABC, abstractmethod
+from typing import Callable
 
 @dataclass(frozen=True)
+
 class NPBatch:
     context_x: Tensor
     context_y: Tensor
     target_x: Tensor
-    target_y: Tensor | None = None  # Optional for inference
+    target_y: Tensor | None = None
+    context_y_clean: Tensor | None = None
     corruption_label: str = "clean"
 
 
-def add_gaussian_noise(y: Tensor, std: float = 0.5) -> Tensor:
+def add_gaussian_noise(x: Tensor, y: Tensor, std: float = 0.5) -> Tensor:
     return y + torch.randn_like(y) * std
 
 
-def apply_bias_shift(y: Tensor, shift_range: tuple[float, float] = (-2.0, 2.0)) -> Tensor:
+def apply_bias_shift(x: Tensor, y: Tensor, shift_range: tuple[float, float] = (-2.0, 2.0)) -> Tensor:
     shift = torch.empty(y.size(0), 1, 1, device=y.device).uniform_(*shift_range)
     return y + shift
+
+
+def heteroskedastic_noise(x: Tensor, y: Tensor, scale_factor: float = 0.5) -> Tensor:
+    """Noise magnitude increases proportionately with |x|."""
+    noise_std = scale_factor * torch.abs(x)
+    return y + torch.randn_like(y) * noise_std
+
+
+def apply_warp_shift(x: Tensor, y: Tensor, warp_power: float = 3.0) -> Tensor:
+    """Non-linear warping of the target signal (e.g., y^3)."""
+    # Preserve sign for odd/even stability
+    return torch.sign(y) * (torch.abs(y) ** warp_power)
 
 
 def rbf_kernel(x1: Tensor, x2: Tensor, length_scale: float = 0.5) -> Tensor:
@@ -29,7 +44,13 @@ def rbf_kernel(x1: Tensor, x2: Tensor, length_scale: float = 0.5) -> Tensor:
     return torch.exp(-0.5 * dist_sq / length_scale**2)
 
 
-class GPData:
+class NPDataset(ABC):
+    @abstractmethod
+    def generate_batch(self, corruption_fn: Callable[[Tensor, Tensor], Tensor] | None = None) -> NPBatch:
+        """Returns a batch of context and target points."""
+        pass
+
+class GPData(NPDataset):
     def __init__(
         self,
         batch_size: int = 16,
@@ -56,13 +77,24 @@ class GPData:
         context_x, target_x = x[:, : self.num_context, :], x[:, self.num_context :, :]
         context_y, target_y = y[:, : self.num_context, :], y[:, self.num_context :, :]
 
+        context_y_clean = context_y.clone()
         if corruption_fn is not None:
-            context_y = corruption_fn(context_y)
+            context_y = corruption_fn(context_x, context_y)
+            corruption_label = "shifted"
+        else:
+            corruption_label = "clean"
 
-        return NPBatch(context_x, context_y, target_x, target_y)
+        return NPBatch(
+            context_x=context_x,
+            context_y=context_y,
+            target_x=target_x,
+            target_y=target_y,
+            context_y_clean=context_y_clean,
+            corruption_label=corruption_label
+        )
 
 
-class SinusoidData:
+class SinusoidData(NPDataset):
     def __init__(
         self,
         batch_size: int = 16,
@@ -95,7 +127,18 @@ class SinusoidData:
         context_x, target_x = x[:, : self.num_context, :], x[:, self.num_context :, :]
         context_y, target_y = y[:, : self.num_context, :], y[:, self.num_context :, :]
 
+        context_y_clean = context_y.clone()
         if corruption_fn is not None:
-            context_y = corruption_fn(context_y)
+            context_y = corruption_fn(context_x, context_y)
+            corruption_label = "shifted"
+        else:
+            corruption_label = "clean"
 
-        return NPBatch(context_x, context_y, target_x, target_y)
+        return NPBatch(
+            context_x=context_x,
+            context_y=context_y,
+            target_x=target_x,
+            target_y=target_y,
+            context_y_clean=context_y_clean,
+            corruption_label=corruption_label
+        )

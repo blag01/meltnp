@@ -74,6 +74,8 @@ class AttentionNeuralProcess(nn.Module):
         context_x: Tensor,
         context_y: Tensor,
         target_x: Tensor,
+        latent_value_shift: Tensor | None = None,
+        context_weights: Tensor | None = None,
     ) -> NeuralProcessOutput:
         if context_x.ndim != 3 or context_y.ndim != 3 or target_x.ndim != 3:
             raise ValueError("expected tensors shaped [batch, points, features]")
@@ -86,6 +88,13 @@ class AttentionNeuralProcess(nn.Module):
 
         context_features = torch.cat([context_x, context_y], dim=-1)
         value_embeddings = self.context_encoder(context_features)
+        
+        if latent_value_shift is not None:
+            value_embeddings = value_embeddings + latent_value_shift
+            
+        if context_weights is not None:
+            value_embeddings = value_embeddings * context_weights
+
         key_embeddings = self.key_encoder(context_x)
         query_embeddings = self.query_encoder(target_x)
 

@@ -72,6 +72,7 @@ def train(args):
             target_y_true=batch.target_y,
             pred_mean=output.mean,
             pred_var=output.variance,
+            context_y_clean=batch.context_y_clean,
             title=f"Result: {args.dataset} (robust={args.robust})",
             save_path=str(plot_path)
         )
