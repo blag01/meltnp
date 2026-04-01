@@ -6,7 +6,7 @@ from .data import GPData, SinusoidData, add_gaussian_noise, apply_bias_shift, he
 
 from .test_time import adapt_and_predict_mlp, adapt_and_predict_reweight, adapt_and_predict_latent
 
-def evaluate_model(model, data_gen, corruption_fn=None, num_tasks=50, adapt_method=None):
+def evaluate_model(model, data_gen, corruption_fn=None, num_tasks=50, adapt_method=None, context_x_range=None):
     """Calculate mean metrics over multiple tasks."""
     model.eval()
     losses = []
@@ -15,7 +15,7 @@ def evaluate_model(model, data_gen, corruption_fn=None, num_tasks=50, adapt_meth
     
     with torch.no_grad():
         for _ in range(num_tasks):
-            batch = data_gen.generate_batch(corruption_fn=corruption_fn)
+            batch = data_gen.generate_batch(corruption_fn=corruption_fn, context_x_range=context_x_range)
             
             if adapt_method == "mlp":
                 mean, var = adapt_and_predict_mlp(model, batch, num_steps=50)
@@ -71,10 +71,15 @@ def run_stress_test(model, dataset_name, shift_type, adapt_method=None):
             fn = lambda x, y: apply_warp_shift(x, y, warp_power=1.0 + val)
         elif shift_type == "outlier":
             fn = lambda x, y: inject_outliers(x, y, fraction=0.3, magnitude=val * 5.0)
+        elif shift_type == "covariate":
+            # Shift context x-range progressively away from [-2, 2]
+            cx_range = (data_gen.x_range[0] + val, data_gen.x_range[1] + val)
+            fn = None
         else:
             fn = None
-            
-        metrics = evaluate_model(model, data_gen, corruption_fn=fn, num_tasks=10, adapt_method=adapt_method)
+        
+        cx = cx_range if shift_type == "covariate" else None
+        metrics = evaluate_model(model, data_gen, corruption_fn=fn, num_tasks=10, adapt_method=adapt_method, context_x_range=cx)
         results["x"].append(val)
         results["nll"].append(metrics["nll"])
         results["mse"].append(metrics["mse"])

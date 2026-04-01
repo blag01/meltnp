@@ -40,7 +40,7 @@ def run_training_phase(experiments):
 def run_benchmarking_phase(experiments):
     """Phase 2 & 3: Benchmark and Report."""
     print("\nStarting scientific benchmarking phase...")
-    shift_types = ["noise", "bias", "hetero", "warp", "outlier"]
+    shift_types = ["noise", "bias", "hetero", "warp", "outlier", "covariate"]
     all_results = {st: {} for st in shift_types}
     
     for dataset, robust in experiments:

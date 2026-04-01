@@ -72,17 +72,26 @@ class GPData(NPDataset):
         self.x_range = x_range
         self.length_scale = length_scale
 
-    def generate_batch(self, corruption_fn: callable | None = None) -> NPBatch:
+    def generate_batch(self, corruption_fn: callable | None = None,
+                       context_x_range: tuple[float, float] | None = None) -> NPBatch:
+        # Sample target x from the standard range
+        target_x = torch.empty(self.batch_size, self.num_target, 1).uniform_(*self.x_range)
+        
+        # Sample context x from a potentially shifted range
+        cx_range = context_x_range if context_x_range is not None else self.x_range
+        context_x = torch.empty(self.batch_size, self.num_context, 1).uniform_(*cx_range)
+        
+        # Evaluate the GP over all points jointly for consistency
+        x = torch.cat([context_x, target_x], dim=1)
         total_points = self.num_context + self.num_target
-        x = torch.empty(self.batch_size, total_points, 1).uniform_(*self.x_range)
 
         K = rbf_kernel(x, x, length_scale=self.length_scale)
         K = K + torch.eye(total_points).unsqueeze(0) * 1e-4
         L = torch.linalg.cholesky(K)
         y = torch.matmul(L, torch.randn(self.batch_size, total_points, 1))
 
-        context_x, target_x = x[:, : self.num_context, :], x[:, self.num_context :, :]
-        context_y, target_y = y[:, : self.num_context, :], y[:, self.num_context :, :]
+        context_y = y[:, : self.num_context, :]
+        target_y = y[:, self.num_context :, :]
 
         context_y_clean = context_y.clone()
         if corruption_fn is not None:
@@ -120,9 +129,16 @@ class SinusoidData(NPDataset):
         self.phase_range = phase_range
         self.freq_range = freq_range
 
-    def generate_batch(self, corruption_fn: callable | None = None) -> NPBatch:
-        total_points = self.num_context + self.num_target
-        x = torch.empty(self.batch_size, total_points, 1).uniform_(*self.x_range)
+    def generate_batch(self, corruption_fn: callable | None = None,
+                       context_x_range: tuple[float, float] | None = None) -> NPBatch:
+        # Sample target x from the standard range
+        target_x = torch.empty(self.batch_size, self.num_target, 1).uniform_(*self.x_range)
+        
+        # Sample context x from a potentially shifted range
+        cx_range = context_x_range if context_x_range is not None else self.x_range
+        context_x = torch.empty(self.batch_size, self.num_context, 1).uniform_(*cx_range)
+        
+        x = torch.cat([context_x, target_x], dim=1)
 
         # Sample task parameters once per batch
         amp = torch.empty(self.batch_size, 1, 1).uniform_(*self.amp_range)
@@ -131,8 +147,8 @@ class SinusoidData(NPDataset):
 
         y = amp * torch.sin(freq * x + phase)
 
-        context_x, target_x = x[:, : self.num_context, :], x[:, self.num_context :, :]
-        context_y, target_y = y[:, : self.num_context, :], y[:, self.num_context :, :]
+        context_y = y[:, : self.num_context, :]
+        target_y = y[:, self.num_context :, :]
 
         context_y_clean = context_y.clone()
         if corruption_fn is not None:
