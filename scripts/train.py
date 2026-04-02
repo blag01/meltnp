@@ -62,14 +62,19 @@ def train(args):
     with torch.no_grad():
         # Evaluate on a single clean task for visualization
         batch = data_gen.generate_batch(corruption_fn=None)
-        output = model(batch.context_x, batch.context_y, batch.target_x)
+        
+        # Ensure target set includes context set so predictions span all observations
+        full_tgt_x = torch.cat([batch.context_x, batch.target_x], dim=1)
+        full_tgt_y = torch.cat([batch.context_y, batch.target_y], dim=1)
+        
+        output = model(batch.context_x, batch.context_y, full_tgt_x)
         
         plot_path = output_path.with_suffix(".png")
         plot_np_task(
             context_x=batch.context_x,
             context_y=batch.context_y,
-            target_x=batch.target_x,
-            target_y_true=batch.target_y,
+            target_x=full_tgt_x,
+            target_y_true=full_tgt_y,
             pred_mean=output.mean,
             pred_var=output.variance,
             context_y_clean=batch.context_y_clean,

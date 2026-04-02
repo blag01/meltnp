@@ -54,9 +54,13 @@ def run_test_time_adaptation():
     data_gen = SinusoidData(batch_size=1, num_context=20, num_target=50)
     batch = data_gen.generate_batch(corruption_fn=lambda x, y: heteroskedastic_noise(x, y, scale_factor=2.0))
 
+    # Include context points in target set for smooth visualisation spanning all points
+    full_tgt_x = torch.cat([batch.context_x, batch.target_x], dim=1)
+    full_tgt_y = torch.cat([batch.context_y_clean, batch.target_y], dim=1) # ground truth line
+    
     # 1. Prediction BEFORE Adaptation
     with torch.no_grad():
-        out_before = model(batch.context_x, batch.context_y, batch.target_x)
+        out_before = model(batch.context_x, batch.context_y, full_tgt_x)
 
     # 2. Test-Time Adaptation Loop
     denoiser = DenoisingMLP()
@@ -104,11 +108,10 @@ def run_test_time_adaptation():
         final_shift = denoiser(batch.context_x, batch.context_y)
         final_denoised_context = batch.context_y - final_shift
         
-        out_after = model(batch.context_x, final_denoised_context, batch.target_x)
+        out_after = model(batch.context_x, final_denoised_context, full_tgt_x)
         
         # Reproject predictions back into the corrupted space so they align with the true noisy targets
-        # The true final targets to predict should ideally be the real observations, not clean targets
-        target_shift = denoiser(batch.target_x, out_after.mean)
+        target_shift = denoiser(full_tgt_x, out_after.mean)
         final_mean = out_after.mean + target_shift
 
     # Save visual comparison
@@ -117,7 +120,7 @@ def run_test_time_adaptation():
     
     # Plot Before
     plot_np_task(
-        batch.context_x, batch.context_y, batch.target_x, batch.target_y,
+        batch.context_x, batch.context_y, full_tgt_x, full_tgt_y,
         out_before.mean, out_before.variance, context_y_clean=batch.context_y_clean,
         title=f"BEFORE Adaptation (Vanilla Model, Hetero Noise)",
         save_path=str(out_dir / "before_mlp.png")
@@ -125,7 +128,7 @@ def run_test_time_adaptation():
     
     # Plot After
     plot_np_task(
-        batch.context_x, batch.context_y, batch.target_x, batch.target_y,
+        batch.context_x, batch.context_y, full_tgt_x, full_tgt_y,
         final_mean, out_after.variance, context_y_clean=batch.context_y_clean,
         title=f"AFTER Adaptation (Parameterized Denoising)",
         save_path=str(out_dir / "after_mlp.png")
