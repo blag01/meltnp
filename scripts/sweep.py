@@ -86,15 +86,14 @@ def run_benchmarking_phase(experiments):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Run the full benchmarking sweep.")
-    parser.add_argument("--train", action="store_true", help="Whitelist: run only the training phase.")
-    parser.add_argument("--bench", action="store_true", help="Whitelist: run only the benchmarking phase.")
-    parser.add_argument("--extra", action="store_true", help="Whitelist: run only the extra TTA scripts (budget and visual prototypes).")
+    parser.add_argument("--no-train", action="store_true", help="Blacklist: skip the training phase.")
+    parser.add_argument("--no-bench", action="store_true", help="Blacklist: skip the benchmarking phase.")
+    parser.add_argument("--no-extra", action="store_true", help="Blacklist: skip the extra TTA scripts (budget and visual prototypes).")
     args = parser.parse_args()
 
-    run_all = not (args.train or args.bench or args.extra)
-    run_train = run_all or args.train
-    run_bench = run_all or args.bench
-    run_extra = run_all or args.extra
+    run_train = not args.no_train
+    run_bench = not args.no_bench
+    run_extra = not args.no_extra
 
     datasets = ["gp", "sinusoid"]
     robust_flags = [False, True]

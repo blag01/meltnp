@@ -36,14 +36,14 @@ Run the entire benchmarking suite (training, stress-testing, robustness plots, t
 uv run python scripts/sweep.py
 ```
 
-If you only want to run specific phases, you can optionally supply a whitelist of flags. Providing any of these will override the default behavior and only execute the specified phases:
-- `--train`: Run only the training phase
-- `--bench`: Run only the stress-testing benchmark & robustness curve plotting
-- `--extra`: Run only the extra TTA test scripts (protoypes and budget)
+If you want to skip specific phases, you can optionally supply exclusion flags:
+- `--no-train`: Skip the training phase
+- `--no-bench`: Skip the stress-testing benchmark & robustness curve plotting
+- `--no-extra`: Skip the extra TTA test scripts (protoypes and budget)
 
-*Example (only regenerate plots and extra scripts, assuming weights exist):*
+*Example (skip training, and only regenerate plots and extra scripts):*
 ```bash
-uv run python scripts/sweep.py --bench --extra
+uv run python scripts/sweep.py --no-train
 ```
 
 Trains all 4 model variants, then stress-tests each across **6 corruption types** (noise, bias, heteroskedastic, warp, outlier, covariate) and **3 TTA methods** (MLP denoiser, context reweighting, latent reprojection). Generates robustness curves for NLL, MSE, and ECE.
