@@ -30,8 +30,16 @@ def plot_np_task(
     
     # Plot true target if available
     if target_y_true is not None:
-        ty = target_y_true[0, :, 0].cpu().numpy()[sort_idx]
-        plt.plot(tx, ty, 'k--', alpha=0.5, label='Ground Truth')
+        ty = target_y_true[0, :, 0].cpu().numpy()
+        # Combine target and context points so the line interpolates through both
+        true_cx = cx
+        true_cy = context_y_clean[0, :, 0].cpu().numpy() if context_y_clean is not None else cy
+        
+        all_x = np.concatenate([tx_unsorted, true_cx])
+        all_y = np.concatenate([ty, true_cy])
+        
+        sort_idx_all = all_x.argsort()
+        plt.plot(all_x[sort_idx_all], all_y[sort_idx_all], 'k--', alpha=0.5, label='Ground Truth')
         
     # Plot uncertainty band (2 sigma)
     plt.fill_between(tx, pm - 2*ps, pm + 2*ps, color='C0', alpha=0.2, label='2σ Uncertainty')
