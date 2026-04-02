@@ -20,7 +20,7 @@ def run_training_phase(experiments):
     """Phase 1: Train all models."""
     for dataset, robust, num_context in experiments:
         mode = "robust" if robust else "vanilla"
-        output_dir = Path(f"results/{dataset}_{mode}/{num_context}")
+        output_dir = Path(f"results/{num_context}/{dataset}_{mode}")
         output_dir.mkdir(parents=True, exist_ok=True)
         
         weights_path = output_dir / "weights.pt"
@@ -50,7 +50,7 @@ def run_benchmarking_phase(experiments):
     for dataset, robust, num_context in experiments:
         mode = "robust" if robust else "vanilla"
         model_name = f"{dataset}_{mode}_{num_context}"
-        weights_path = Path(f"results/{dataset}_{mode}/{num_context}/weights.pt")
+        weights_path = Path(f"results/{num_context}/{dataset}_{mode}/weights.pt")
         
         if not weights_path.exists():
             continue
@@ -73,16 +73,15 @@ def run_benchmarking_phase(experiments):
                     all_results[(dataset, num_context)][st][tta_name] = run_stress_test(
                         model, dataset, st, adapt_method=tta_method, num_context=num_context)
 
-    # Generate comparative plots
     print("Generating Comparative Robustness Curves...")
-    plot_dir = Path("results/plots")
     for ds, ctx in groups:
+        plot_dir = Path(f"results/{ctx}/plots")
         for st in shift_types:
             if all_results[(ds, ctx)][st]:
-                st_dir = plot_dir / st / str(ctx)
+                st_dir = plot_dir / st
                 st_dir.mkdir(parents=True, exist_ok=True)
                 plot_robustness_curves(all_results[(ds, ctx)][st], str(st_dir), file_prefix=ds)
-    print(f"All plots saved to {plot_dir}/")
+    print("All plots saved locally for each context size!")
 
 def main():
     import argparse
