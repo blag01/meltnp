@@ -76,7 +76,8 @@ def run_benchmarking_phase(experiments):
     for ds in datasets:
         for st in shift_types:
             if all_results[ds][st]:
-                plot_robustness_curves(all_results[ds][st], str(plot_dir), file_prefix=f"{ds}_{st}")
+                st_dir = plot_dir / st
+                plot_robustness_curves(all_results[ds][st], str(st_dir), file_prefix=ds)
     print(f"All plots saved to {plot_dir}/")
 
 def main():
