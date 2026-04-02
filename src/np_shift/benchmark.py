@@ -87,10 +87,11 @@ def run_stress_test(model, dataset_name, shift_type, adapt_method=None):
         
     return results
 
-def plot_robustness_curves(sweep_results, save_dir):
+def plot_robustness_curves(sweep_results, save_dir, file_prefix="robustness"):
     """
     Generate plots comparing different models across multiple metrics.
     sweep_results: dict mapping model_name -> results dict
+    file_prefix: prefix for output filenames (e.g. "gp_noise" -> "gp_noise_nll.png")
     """
     Path(save_dir).mkdir(parents=True, exist_ok=True)
     
@@ -104,14 +105,13 @@ def plot_robustness_curves(sweep_results, save_dir):
         plt.figure(figsize=(10, 6))
         for name, data in sweep_results.items():
             x = data["x"]
-            # data[metric_key] is a list of tuples (mean, std)
             m, s = zip(*data[metric_key])
             plt.errorbar(x, m, yerr=s, label=name, capsize=3, fmt='-o')
             
         plt.title(f"Robustness to Distribution Shift ({metric_name})")
-        plt.xlabel("Noise Intensity (std)")
+        plt.xlabel("Corruption Intensity")
         plt.ylabel(metric_name)
         plt.legend()
         plt.grid(True, alpha=0.3)
-        plt.savefig(Path(save_dir) / f"robustness_curve_{metric_key}.png")
+        plt.savefig(Path(save_dir) / f"{file_prefix}_{metric_key}.png")
         plt.close()

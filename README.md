@@ -37,7 +37,7 @@ uv run python scripts/sweep.py
 
 Trains all 4 model variants, then stress-tests each across **6 corruption types** (noise, bias, heteroskedastic, warp, outlier, covariate) and **3 TTA methods** (MLP denoiser, context reweighting, latent reprojection). Generates robustness curves for NLL, MSE, and ECE.
 
-Outputs: `results/plots/{noise,bias,hetero,warp,outlier,covariate}/robustness_curve_{nll,mse,ece}.png`
+Outputs: `results/plots/{dataset}_{shift}_{metric}.png` (e.g. `gp_noise_nll.png`, `sinusoid_hetero_ece.png`)
 
 ### TTA budget analysis
 

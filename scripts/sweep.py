@@ -41,7 +41,10 @@ def run_benchmarking_phase(experiments):
     """Phase 2 & 3: Benchmark and Report."""
     print("\nStarting scientific benchmarking phase...")
     shift_types = ["noise", "bias", "hetero", "warp", "outlier", "covariate"]
-    all_results = {st: {} for st in shift_types}
+    datasets = sorted(set(d for d, _ in experiments))
+    
+    # Structure: {dataset: {shift_type: {model_name: results}}}
+    all_results = {ds: {st: {} for st in shift_types} for ds in datasets}
     
     for dataset, robust in experiments:
         mode = "robust" if robust else "vanilla"
@@ -57,7 +60,7 @@ def run_benchmarking_phase(experiments):
         
         print(f"Stress-testing model: {model_name}...")
         for st in shift_types:
-            all_results[st][model_name] = run_stress_test(model, dataset, st)
+            all_results[dataset][st][model_name] = run_stress_test(model, dataset, st)
             
         # Add TTA tracks for vanilla models to compare against explicitly robust ones
         if not robust:
@@ -65,14 +68,16 @@ def run_benchmarking_phase(experiments):
                 tta_name = f"{model_name}_tta_{tta_method}"
                 print(f"Stress-testing model: {tta_name} (with inference-time optimization)...")
                 for st in shift_types:
-                    all_results[st][tta_name] = run_stress_test(model, dataset, st, adapt_method=tta_method)
+                    all_results[dataset][st][tta_name] = run_stress_test(model, dataset, st, adapt_method=tta_method)
 
-    # Generate comparative plots
+    # Generate comparative plots — one per (dataset, shift_type), flat in results/plots/
     print("Generating Comparative Robustness Curves...")
-    for st in shift_types:
-        plot_dir = Path(f"results/plots/{st}")
-        plot_robustness_curves(all_results[st], str(plot_dir))
-        print(f"[{st.upper()}] Scientific reports generated in {plot_dir}/")
+    plot_dir = Path("results/plots")
+    for ds in datasets:
+        for st in shift_types:
+            if all_results[ds][st]:
+                plot_robustness_curves(all_results[ds][st], str(plot_dir), file_prefix=f"{ds}_{st}")
+    print(f"All plots saved to {plot_dir}/")
 
 def main():
     experiments = [
