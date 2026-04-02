@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+import csv
 from .data import GPData, SinusoidData, add_gaussian_noise, apply_bias_shift, heteroskedastic_noise, apply_warp_shift, inject_outliers
 
 from .test_time import adapt_and_predict_mlp, adapt_and_predict_reweight, adapt_and_predict_latent
@@ -115,3 +116,21 @@ def plot_robustness_curves(sweep_results, save_dir, file_prefix="robustness"):
         plt.grid(True, alpha=0.3)
         plt.savefig(Path(save_dir) / f"{file_prefix}_{metric_key}.png")
         plt.close()
+        
+        # Save corresponding CSV
+        csv_path = Path(save_dir) / f"{file_prefix}_{metric_key}.csv"
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            x_vals = list(sweep_results.values())[0]["x"]
+            
+            headers = ["Intensity"]
+            for name in sweep_results.keys():
+                headers.extend([f"{name}_mean", f"{name}_std"])
+            writer.writerow(headers)
+            
+            for i, x in enumerate(x_vals):
+                row = [x]
+                for name in sweep_results.keys():
+                    m, s = sweep_results[name][metric_key][i]
+                    row.extend([m, s])
+                writer.writerow(row)
