@@ -37,7 +37,7 @@ def run_budget_analysis():
     out_dir.mkdir(exist_ok=True, parents=True)
 
     for dataset_name, corruption_fn, corruption_label in configs:
-        weights_path = Path(f"results/{dataset_name}_10_vanilla/weights.pt")
+        weights_path = Path(f"results/{dataset_name}_vanilla/10/weights.pt")
         if not weights_path.exists():
             print(f"Skipping {dataset_name}: {weights_path} not found. Run sweep.py first.")
             continue

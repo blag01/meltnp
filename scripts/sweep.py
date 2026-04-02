@@ -20,7 +20,7 @@ def run_training_phase(experiments):
     """Phase 1: Train all models."""
     for dataset, robust, num_context in experiments:
         mode = "robust" if robust else "vanilla"
-        output_dir = Path(f"results/{dataset}_{num_context}_{mode}")
+        output_dir = Path(f"results/{dataset}_{mode}/{num_context}")
         output_dir.mkdir(parents=True, exist_ok=True)
         
         weights_path = output_dir / "weights.pt"
@@ -49,8 +49,8 @@ def run_benchmarking_phase(experiments):
     
     for dataset, robust, num_context in experiments:
         mode = "robust" if robust else "vanilla"
-        model_name = f"{dataset}_{num_context}_{mode}"
-        weights_path = Path(f"results/{dataset}_{num_context}_{mode}/weights.pt")
+        model_name = f"{dataset}_{mode}_{num_context}"
+        weights_path = Path(f"results/{dataset}_{mode}/{num_context}/weights.pt")
         
         if not weights_path.exists():
             continue
@@ -79,8 +79,9 @@ def run_benchmarking_phase(experiments):
     for ds, ctx in groups:
         for st in shift_types:
             if all_results[(ds, ctx)][st]:
-                st_dir = plot_dir / st
-                plot_robustness_curves(all_results[(ds, ctx)][st], str(st_dir), file_prefix=f"{ds}_{ctx}")
+                st_dir = plot_dir / st / str(ctx)
+                st_dir.mkdir(parents=True, exist_ok=True)
+                plot_robustness_curves(all_results[(ds, ctx)][st], str(st_dir), file_prefix=ds)
     print(f"All plots saved to {plot_dir}/")
 
 def main():
