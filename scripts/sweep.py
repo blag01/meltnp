@@ -85,6 +85,11 @@ def run_benchmarking_phase(experiments):
     print(f"All plots saved to {plot_dir}/")
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Run the full benchmarking sweep.")
+    parser.add_argument("--all", action="store_true", help="Also run all custom prototype and budget experiments at the end.")
+    args = parser.parse_args()
+
     datasets = ["gp", "sinusoid"]
     robust_flags = [False, True]
     context_sizes = [10, 20, 40]
@@ -97,6 +102,13 @@ def main():
     
     run_training_phase(experiments)
     run_benchmarking_phase(experiments)
+
+    if args.all:
+        print("\n>>> [Extra] Running Test-Time Adaptation Prototypes (scripts/test_time_adapt.py)")
+        subprocess.run([sys.executable, "scripts/test_time_adapt.py"], check=True)
+        
+        print("\n>>> [Extra] Running TTA Budget Curves (scripts/tta_budget.py)")
+        subprocess.run([sys.executable, "scripts/tta_budget.py"], check=True)
 
     print("\nSweep Complete! Results including master COMPARISON are in 'results/'")
 

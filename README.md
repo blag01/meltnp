@@ -26,13 +26,19 @@ uv run python scripts/train.py --dataset gp
 uv run python scripts/train.py --dataset sinusoid --robust
 ```
 
-Options: `--dataset {gp,sinusoid}`, `--robust`, `--epochs N`, `--lr F`
+Options: `--dataset {gp,sinusoid}`, `--robust`, `--epochs N`, `--lr F`, `--all`
 Outputs: `results/<dataset>_<mode>/weights.pt` and `weights.png`
 
 ### Run the full experiment suite
 
+Run the entire benchmarking suite (training, stress-testing, and plotting):
 ```bash
 uv run python scripts/sweep.py
+```
+
+To run the master sweep **and** automatically run the Test-Time Adaptation (TTA) prototypes and budget analysis scripts at the end:
+```bash
+uv run python scripts/sweep.py --all
 ```
 
 Trains all 4 model variants, then stress-tests each across **6 corruption types** (noise, bias, heteroskedastic, warp, outlier, covariate) and **3 TTA methods** (MLP denoiser, context reweighting, latent reprojection). Generates robustness curves for NLL, MSE, and ECE.
