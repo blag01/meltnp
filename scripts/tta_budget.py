@@ -37,7 +37,7 @@ def run_budget_analysis():
     out_dir.mkdir(exist_ok=True, parents=True)
 
     for dataset_name, corruption_fn, corruption_label in configs:
-        weights_path = Path(f"results/{dataset_name}_vanilla/weights.pt")
+        weights_path = Path(f"results/{dataset_name}_10_vanilla/weights.pt")
         if not weights_path.exists():
             print(f"Skipping {dataset_name}: {weights_path} not found. Run sweep.py first.")
             continue
@@ -47,7 +47,7 @@ def run_budget_analysis():
         model.eval()
 
         DataClass = GPData if dataset_name == "gp" else SinusoidData
-        data_gen = DataClass(batch_size=16)
+        data_gen = DataClass(batch_size=16, num_context=10)
 
         # Collect results: method -> list of (steps, nll_mean, nll_std)
         method_results = {m: {"steps": [], "nll_mean": [], "nll_std": []} for m in tta_methods}

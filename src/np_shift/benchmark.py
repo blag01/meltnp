@@ -52,13 +52,13 @@ def evaluate_model(model, data_gen, corruption_fn=None, num_tasks=50, adapt_meth
         "ece": (np.mean(eces), np.std(eces)),
     }
 
-def run_stress_test(model, dataset_name, shift_type, adapt_method=None):
+def run_stress_test(model, dataset_name, shift_type, adapt_method=None, num_context=10):
     """Measure metrics vs corruption intensity."""
     intensity_range = np.linspace(0.0, 2.0, 10)
     results = {"x": [], "nll": [], "mse": [], "ece": []}
     
     DataClass = GPData if dataset_name == "gp" else SinusoidData
-    data_gen = DataClass(batch_size=16)
+    data_gen = DataClass(batch_size=16, num_context=num_context)
     
     for val in intensity_range:
         if shift_type == "noise":

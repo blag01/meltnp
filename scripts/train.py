@@ -24,7 +24,7 @@ def train(args):
     
     # Select dataset
     DataClass = GPData if args.dataset == "gp" else SinusoidData
-    data_gen = DataClass(batch_size=args.batch_size)
+    data_gen = DataClass(batch_size=args.batch_size, num_context=args.num_context)
     
     # Configure potential corruptions
     corruptions = [None]
@@ -84,6 +84,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--dataset", type=str, default="gp", choices=["gp", "sinusoid"])
+    parser.add_argument("--num-context", type=int, default=10, help="Number of context points.")
     parser.add_argument("--robust", action="store_true", help="Enable random corruptions during training.")
     parser.add_argument("--output", type=str, default="model_weights.pt", help="File to save weights.")
     
