@@ -23,6 +23,7 @@ def plot_np_task(
     ps = torch.sqrt(pred_var[0, :, 0]).cpu().numpy()
     
     # Sort target points for a clean line plot
+    tx_unsorted = tx.copy()
     sort_idx = tx.argsort()
     tx, pm, ps = tx[sort_idx], pm[sort_idx], ps[sort_idx]
     
