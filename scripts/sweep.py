@@ -87,8 +87,15 @@ def run_benchmarking_phase(experiments):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Run the full benchmarking sweep.")
-    parser.add_argument("--all", action="store_true", help="Also run all custom prototype and budget experiments at the end.")
+    parser.add_argument("--train", action="store_true", help="Whitelist: run only the training phase.")
+    parser.add_argument("--bench", action="store_true", help="Whitelist: run only the benchmarking phase.")
+    parser.add_argument("--extra", action="store_true", help="Whitelist: run only the extra TTA scripts (budget and visual prototypes).")
     args = parser.parse_args()
+
+    run_all = not (args.train or args.bench or args.extra)
+    run_train = run_all or args.train
+    run_bench = run_all or args.bench
+    run_extra = run_all or args.extra
 
     datasets = ["gp", "sinusoid"]
     robust_flags = [False, True]
@@ -100,10 +107,13 @@ def main():
             for r in robust_flags:
                 experiments.append((ds, r, ctx))
     
-    run_training_phase(experiments)
-    run_benchmarking_phase(experiments)
+    if run_train:
+        run_training_phase(experiments)
+    
+    if run_bench:
+        run_benchmarking_phase(experiments)
 
-    if args.all:
+    if run_extra:
         print("\n>>> [Extra] Running Test-Time Adaptation Prototypes (scripts/test_time_adapt.py)")
         subprocess.run([sys.executable, "scripts/test_time_adapt.py"], check=True)
         

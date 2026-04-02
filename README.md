@@ -31,14 +31,19 @@ Outputs: `results/<dataset>_<mode>/weights.pt` and `weights.png`
 
 ### Run the full experiment suite
 
-Run the entire benchmarking suite (training, stress-testing, and plotting):
+Run the entire benchmarking suite (training, stress-testing, robustness plots, test-time adaptation prototypes, and budget curves) all at once:
 ```bash
 uv run python scripts/sweep.py
 ```
 
-To run the master sweep **and** automatically run the Test-Time Adaptation (TTA) prototypes and budget analysis scripts at the end:
+If you only want to run specific phases, you can optionally supply a whitelist of flags. Providing any of these will override the default behavior and only execute the specified phases:
+- `--train`: Run only the training phase
+- `--bench`: Run only the stress-testing benchmark & robustness curve plotting
+- `--extra`: Run only the extra TTA test scripts (protoypes and budget)
+
+*Example (only regenerate plots and extra scripts, assuming weights exist):*
 ```bash
-uv run python scripts/sweep.py --all
+uv run python scripts/sweep.py --bench --extra
 ```
 
 Trains all 4 model variants, then stress-tests each across **6 corruption types** (noise, bias, heteroskedastic, warp, outlier, covariate) and **3 TTA methods** (MLP denoiser, context reweighting, latent reprojection). Generates robustness curves for NLL, MSE, and ECE.
