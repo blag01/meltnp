@@ -77,6 +77,12 @@ class AttentionNeuralProcess(nn.Module):
         latent_value_shift: Tensor | None = None,
         context_weights: Tensor | None = None,
     ) -> NeuralProcessOutput:
+        """Run cross-attention from context to target.
+
+        Args:
+            latent_value_shift: additive offset to value embeddings (for TTA).
+            context_weights: multiplicative scaling of value embeddings (for TTA).
+        """
         if context_x.ndim != 3 or context_y.ndim != 3 or target_x.ndim != 3:
             raise ValueError("expected tensors shaped [batch, points, features]")
         if context_x.shape[:2] != context_y.shape[:2]:

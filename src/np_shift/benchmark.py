@@ -30,15 +30,15 @@ def evaluate_model(model, data_gen, corruption_fn=None, num_tasks=50, adapt_meth
             y = batch.target_y
             std = torch.sqrt(var)
             
-            # 1. NLL calculation
+            # NLL
             log_p = -0.5 * torch.log(2 * torch.pi * var) - 0.5 * (y - mean)**2 / var
             losses.append(-log_p.mean().item())
             
-            # 2. MSE calculation
+            # MSE
             mse = ((y - mean)**2).mean().item()
             mses.append(mse)
             
-            # 3. ECE calculation (Regression via standard normal CDF)
+            # ECE (regression calibration via standard normal CDF)
             z = (y - mean) / std
             cdf = torch.distributions.Normal(0, 1).cdf(z).flatten().cpu().numpy()
             counts, _ = np.histogram(cdf, bins=np.linspace(0, 1, 11))

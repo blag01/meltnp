@@ -1,9 +1,16 @@
+"""Test-time adaptation methods for Neural Processes.
+
+Each adapt_and_predict_* function takes a frozen model and a corrupted batch,
+optimises lightweight parameters via pseudo-likelihood on split context,
+and returns (mean, variance) predictions on the target set.
+"""
 import torch
 import torch.nn as nn
 from torch import optim
 from .data import NPBatch
 
 class DenoisingMLP(nn.Module):
+    """Small MLP that maps (x, y) -> learned noise shift."""
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
@@ -11,7 +18,7 @@ class DenoisingMLP(nn.Module):
             nn.ReLU(),
             nn.Linear(16, 1)
         )
-        # Initialize output layer to emit zeros initially (identity mapping)
+        # Zero-init output layer so denoiser starts as identity
         nn.init.zeros_(self.net[2].weight)
         nn.init.zeros_(self.net[2].bias)
 
@@ -24,7 +31,7 @@ def nll_loss(mean, var, target_y):
     return (0.5 * torch.log(2 * torch.pi * var) + 0.5 * (target_y - mean)**2 / var).mean()
 
 def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100):
-    """Parameterized Denoising Network"""
+    """Adapt via a learned denoising network. Returns (mean, variance)."""
     model.eval()
     
     with torch.enable_grad():
@@ -63,7 +70,7 @@ def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100):
 
 
 def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100):
-    """Context Reweighting"""
+    """Adapt via per-point attention weights. Returns (mean, variance)."""
     model.eval()
     num_ctx = batch.context_x.size(1)
     split_idx = num_ctx // 2
@@ -99,7 +106,7 @@ def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100):
 
 
 def adapt_and_predict_latent(model, batch: NPBatch, num_steps: int = 100):
-    """Latent Reprojection"""
+    """Adapt via learnable offset in representation space. Returns (mean, variance)."""
     model.eval()
     num_ctx = batch.context_x.size(1)
     split_idx = num_ctx // 2

@@ -7,8 +7,8 @@ from abc import ABC, abstractmethod
 from typing import Callable
 
 @dataclass(frozen=True)
-
 class NPBatch:
+    """A single batch of Neural Process data (context + target)."""
     context_x: Tensor
     context_y: Tensor
     target_x: Tensor
@@ -18,10 +18,12 @@ class NPBatch:
 
 
 def add_gaussian_noise(x: Tensor, y: Tensor, std: float = 0.5) -> Tensor:
+    """Add i.i.d. Gaussian noise to y."""
     return y + torch.randn_like(y) * std
 
 
 def apply_bias_shift(x: Tensor, y: Tensor, shift_range: tuple[float, float] = (-2.0, 2.0)) -> Tensor:
+    """Add a uniform constant bias per batch element."""
     shift = torch.empty(y.size(0), 1, 1, device=y.device).uniform_(*shift_range)
     return y + shift
 
@@ -58,6 +60,7 @@ class NPDataset(ABC):
         pass
 
 class GPData(NPDataset):
+    """Generates regression tasks from a GP with RBF kernel."""
     def __init__(
         self,
         batch_size: int = 16,
@@ -111,6 +114,7 @@ class GPData(NPDataset):
 
 
 class SinusoidData(NPDataset):
+    """Generates regression tasks from random sinusoids."""
     def __init__(
         self,
         batch_size: int = 16,
