@@ -37,15 +37,17 @@ def plot_np_task(
     plt.fill_between(tx, pm - 2*ps, pm + 2*ps, color='C0', alpha=0.2, label='2σ Uncertainty')
     plt.plot(tx, pm, 'C0', lw=2, label='Predicted Mean')
     
-    # Plot clean context points as ghosts if they differ from corrupted ones
-    if context_y_clean is not None:
+    # Determine if context was actually corrupted
+    is_corrupted = (context_y_clean is not None and not np.allclose(cy, context_y_clean[0, :, 0].cpu().numpy()))
+    
+    # Plot clean context points as ghosts if corrupted
+    if is_corrupted:
         cy_clean = context_y_clean[0, :, 0].cpu().numpy()
-        if not np.allclose(cy, cy_clean):
-            plt.scatter(cx, cy_clean, c='black', marker='o', alpha=0.3, s=30, label='Clean Context (unseen)')
+        plt.scatter(cx, cy_clean, c='black', marker='o', alpha=0.3, s=30, label='Clean Context (unseen)')
 
-    # Plot corrupted context points
-    plt.scatter(cx, cy, c='red' if context_y_clean is not None else 'black', 
-                marker='x', s=50, zorder=10, label='Observed Context (Shifted)' if context_y_clean is not None else 'Context Points')
+    # Plot context points
+    plt.scatter(cx, cy, c='red' if is_corrupted else 'black', 
+                marker='x', s=50, zorder=10, label='Observed Context (Shifted)' if is_corrupted else 'Context Points')
     
     plt.title(title)
     plt.xlabel("x")
