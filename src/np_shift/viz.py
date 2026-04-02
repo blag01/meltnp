@@ -67,6 +67,39 @@ def plot_np_task(
     if save_path:
         plt.savefig(save_path)
         print(f"Plot saved to {save_path}")
+        
+        # Save corresponding CSV for comparisons without reloading the model
+        import csv
+        from pathlib import Path
+        csv_path = Path(save_path).with_suffix('.csv')
+        
+        all_points = {}
+        ty_unsorted = target_y_true[0, :, 0].cpu().numpy() if target_y_true is not None else [None] * len(tx_unsorted)
+        pm_unsorted = pred_mean[0, :, 0].cpu().numpy()
+        ps_unsorted = torch.sqrt(pred_var[0, :, 0]).cpu().numpy()
+        
+        for x, y_true, m, s in zip(tx_unsorted, ty_unsorted, pm_unsorted, ps_unsorted):
+            all_points[x] = {
+                "is_context": 0, "cy_clean": "", "cy_obs": "",
+                "ty": y_true if y_true is not None else "", "pm": m, "ps": s
+            }
+            
+        cy_clean_arr = context_y_clean[0, :, 0].cpu().numpy() if context_y_clean is not None else cy
+        for x, y_clean, y_obs in zip(cx, cy_clean_arr, cy):
+            if x not in all_points:
+                all_points[x] = {"ty": "", "pm": "", "ps": ""}
+            all_points[x]["is_context"] = 1
+            all_points[x]["cy_clean"] = y_clean
+            all_points[x]["cy_obs"] = y_obs
+            
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["x", "is_context", "ground_truth", "observed_context", "pred_mean", "pred_std"])
+            
+            for x in sorted(all_points.keys()):
+                p = all_points[x]
+                gt = p["cy_clean"] if p["is_context"] else p["ty"]
+                writer.writerow([x, p["is_context"], gt, p["cy_obs"], p["pm"], p["ps"]])
     else:
         plt.show()
     plt.close()
