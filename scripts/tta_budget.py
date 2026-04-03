@@ -21,7 +21,7 @@ from np_shift.benchmark import evaluate_model
 from np_shift.data import add_gaussian_noise, heteroskedastic_noise
 
 
-def run_budget_analysis():
+def run_budget_analysis(z_dim=None):
     print("--- TTA Budget Curve Analysis ---")
 
     # We test on both datasets with a moderate corruption
@@ -42,7 +42,7 @@ def run_budget_analysis():
             print(f"Skipping {dataset_name}: {weights_path} not found. Run sweep.py first.")
             continue
 
-        model = AttentionNeuralProcess()
+        model = AttentionNeuralProcess(z_dim=z_dim)
         model.load_state_dict(torch.load(weights_path, weights_only=True))
         model.eval()
 
@@ -112,4 +112,9 @@ def run_budget_analysis():
 
 
 if __name__ == "__main__":
-    run_budget_analysis()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--z-dim", type=int, default=None)
+    args = parser.parse_args()
+    
+    run_budget_analysis(z_dim=args.z_dim)

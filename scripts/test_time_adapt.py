@@ -38,7 +38,7 @@ def nll_loss(mean, var, target_y):
     """Gaussian NLL."""
     return (0.5 * torch.log(2 * torch.pi * var) + 0.5 * (target_y - mean)**2 / var).mean()
 
-def run_test_time_adaptation():
+def run_test_time_adaptation(z_dim=None):
     print("--- Test-Time Parameterized Denoising Prototype ---")
     weights_path = Path("results/10/sinusoid_vanilla/weights.pt")
     if not weights_path.exists():
@@ -46,7 +46,7 @@ def run_test_time_adaptation():
         return
 
     # Load "Vanilla" Model (only knows clean data)
-    model = AttentionNeuralProcess()
+    model = AttentionNeuralProcess(z_dim=z_dim)
     model.load_state_dict(torch.load(weights_path, weights_only=True))
     model.eval()
 
@@ -148,4 +148,9 @@ def run_test_time_adaptation():
     print(f"\nSaved 'before_mlp.png', 'after_mlp.png', and 'optimization_curve_mlp.png' to {out_dir}")
 
 if __name__ == "__main__":
-    run_test_time_adaptation()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--z-dim", type=int, default=None)
+    args = parser.parse_args()
+    
+    run_test_time_adaptation(z_dim=args.z_dim)

@@ -16,7 +16,7 @@ if str(SRC_DIR) not in sys.path:
 from np_shift import AttentionNeuralProcess, run_stress_test, plot_robustness_curves
 
 
-def run_training_phase(experiments):
+def run_training_phase(experiments, z_dim=None):
     """Phase 1: Train all models."""
     for dataset, robust, num_context in experiments:
         mode = "robust" if robust else "vanilla"
@@ -34,11 +34,13 @@ def run_training_phase(experiments):
         ]
         if robust:
             cmd.append("--robust")
+        if z_dim is not None:
+            cmd.extend(["--z-dim", str(z_dim)])
             
         print(f"\n>>> [Train] {dataset}_{num_context} ({mode})")
         subprocess.run(cmd, check=True)
 
-def run_benchmarking_phase(experiments):
+def run_benchmarking_phase(experiments, z_dim=None):
     """Phase 2 & 3: Benchmark and Report."""
     print("\nStarting scientific benchmarking phase...")
     shift_types = ["noise", "bias", "hetero", "warp", "outlier", "covariate"]
@@ -55,7 +57,7 @@ def run_benchmarking_phase(experiments):
         if not weights_path.exists():
             continue
             
-        model = AttentionNeuralProcess()
+        model = AttentionNeuralProcess(z_dim=z_dim)
         model.load_state_dict(torch.load(weights_path, weights_only=True))
         model.eval()
         
@@ -89,6 +91,7 @@ def main():
     parser.add_argument("--no-train", action="store_true", help="Blacklist: skip the training phase.")
     parser.add_argument("--no-bench", action="store_true", help="Blacklist: skip the benchmarking phase.")
     parser.add_argument("--no-extra", action="store_true", help="Blacklist: skip the extra TTA scripts (budget and visual prototypes).")
+    parser.add_argument("--z-dim", type=int, default=None, help="Dimension of latent variable z (None = Deterministic TNP).")
     args = parser.parse_args()
 
     run_train = not args.no_train
@@ -106,17 +109,18 @@ def main():
                 experiments.append((ds, r, ctx))
     
     if run_train:
-        run_training_phase(experiments)
+        run_training_phase(experiments, z_dim=args.z_dim)
     
     if run_bench:
-        run_benchmarking_phase(experiments)
+        run_benchmarking_phase(experiments, z_dim=args.z_dim)
 
     if run_extra:
+        extra_args = ["--z-dim", str(args.z_dim)] if args.z_dim is not None else []
         print("\n>>> [Extra] Running Test-Time Adaptation Prototypes (scripts/test_time_adapt.py)")
-        subprocess.run([sys.executable, "scripts/test_time_adapt.py"], check=True)
+        subprocess.run([sys.executable, "scripts/test_time_adapt.py"] + extra_args, check=True)
         
         print("\n>>> [Extra] Running TTA Budget Curves (scripts/tta_budget.py)")
-        subprocess.run([sys.executable, "scripts/tta_budget.py"], check=True)
+        subprocess.run([sys.executable, "scripts/tta_budget.py"] + extra_args, check=True)
 
     print("\nSweep Complete! Results including master COMPARISON are in 'results/'")
 
