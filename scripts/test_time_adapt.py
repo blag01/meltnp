@@ -39,9 +39,9 @@ def nll_loss(mean, var, target_y):
     return (0.5 * torch.log(2 * torch.pi * var) + 0.5 * (target_y - mean)**2 / var).mean()
 
 def run_test_time_adaptation(z_dim=None):
-    print("--- Test-Time Parameterized Denoising Prototype ---")
-    mode = f"vanilla_z{z_dim}" if z_dim else "vanilla"
-    weights_path = Path(f"results/10/sinusoid_{mode}/weights.pt")
+    print(f"--- Test-Time Parameterized Denoising Prototype (z_dim={z_dim}) ---")
+    root = "results/tnp" if z_dim is None else "results/ztnp"
+    weights_path = Path(f"{root}/10/sinusoid_vanilla/weights.pt")
     if not weights_path.exists():
         print(f"Error: {weights_path} not found. Run 'uv run python scripts/sweep.py' first.")
         return
@@ -116,7 +116,7 @@ def run_test_time_adaptation(z_dim=None):
         final_mean = out_after.mean + target_shift
 
     # Save visual comparison
-    out_dir = Path(f"results/10/test_time_adaptation{'_z'+str(z_dim) if z_dim else ''}")
+    out_dir = Path(f"{root}/10/test_time_adaptation")
     out_dir.mkdir(exist_ok=True, parents=True)
     
     # Plot Before

@@ -33,12 +33,12 @@ def run_budget_analysis(z_dim=None):
     step_budgets = [0, 5, 10, 20, 50, 100, 200]
     tta_methods = ["mlp", "reweight", "latent"]
 
-    out_dir = Path(f"results/10/tta_budget{'_z'+str(z_dim) if z_dim else ''}")
+    root = "results/tnp" if z_dim is None else "results/ztnp"
+    out_dir = Path(f"{root}/10/tta_budget")
     out_dir.mkdir(exist_ok=True, parents=True)
 
     for dataset_name, corruption_fn, corruption_label in configs:
-        mode = f"vanilla_z{z_dim}" if z_dim else "vanilla"
-        weights_path = Path(f"results/10/{dataset_name}_{mode}/weights.pt")
+        weights_path = Path(f"{root}/10/{dataset_name}_vanilla/weights.pt")
         if not weights_path.exists():
             print(f"Skipping {dataset_name}: {weights_path} not found. Run sweep.py first.")
             continue
