@@ -40,7 +40,7 @@ def nll_loss(mean, var, target_y):
 
 def run_test_time_adaptation(z_dim=None):
     print(f"--- Test-Time Parameterized Denoising Prototype (z_dim={z_dim}) ---")
-    root = "results/tnp" if z_dim is None else "results/ztnp"
+    root = "results/tnp" if z_dim is None else f"results/z{z_dim}tnp"
     weights_path = Path(f"{root}/10/sinusoid_vanilla/weights.pt")
     if not weights_path.exists():
         print(f"Error: {weights_path} not found. Run 'uv run python scripts/sweep.py' first.")

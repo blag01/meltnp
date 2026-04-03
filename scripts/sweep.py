@@ -21,7 +21,7 @@ def run_training_phase(experiments, z_dims):
     for z_dim in z_dims:
         for dataset, robust, num_context in experiments:
             mode = "robust" if robust else "vanilla"
-            root = "results/tnp" if z_dim is None else "results/ztnp"
+            root = "results/tnp" if z_dim is None else f"results/z{z_dim}tnp"
             output_dir = Path(f"{root}/{num_context}/{dataset}_{mode}")
         output_dir.mkdir(parents=True, exist_ok=True)
         
@@ -54,7 +54,7 @@ def run_benchmarking_phase(experiments, z_dims):
     for z_dim in z_dims:
         for dataset, robust, num_context in experiments:
             mode = "robust" if robust else "vanilla"
-            root = "results/tnp" if z_dim is None else "results/ztnp"
+            root = "results/tnp" if z_dim is None else f"results/z{z_dim}tnp"
             model_name = f"{dataset}_{mode}_{num_context}"
             weights_path = Path(f"{root}/{num_context}/{dataset}_{mode}/weights.pt")
         
@@ -81,7 +81,7 @@ def run_benchmarking_phase(experiments, z_dims):
 
     print("Generating Comparative Robustness Curves...")
     for ds, ctx, z_dim in groups:
-        root = "results/tnp" if z_dim is None else "results/ztnp"
+        root = "results/tnp" if z_dim is None else f"results/z{z_dim}tnp"
         plot_dir = Path(f"{root}/{ctx}/plots")
         for st in shift_types:
             if all_results[(ds, ctx, z_dim)][st]:
@@ -96,7 +96,7 @@ def main():
     parser.add_argument("--no-train", action="store_true", help="Blacklist: skip the training phase.")
     parser.add_argument("--no-bench", action="store_true", help="Blacklist: skip the benchmarking phase.")
     parser.add_argument("--no-extra", action="store_true", help="Blacklist: skip the extra TTA scripts (budget and visual prototypes).")
-    parser.add_argument("--z-dim", type=int, default=None, help="Dimension of latent variable z (None = Deterministic TNP).")
+    parser.add_argument("--z-dim", type=int, default=16, help="Dimension of latent variable z (determines latent root, e.g. results/z16tnp).")
     args = parser.parse_args()
 
     run_train = not args.no_train
@@ -113,9 +113,7 @@ def main():
             for r in robust_flags:
                 experiments.append((ds, r, ctx))
     
-    z_dims = [None]
-    if args.z_dim is not None:
-        z_dims.append(args.z_dim)
+    z_dims = [None, args.z_dim]
 
     if run_train:
         run_training_phase(experiments, z_dims)
@@ -132,7 +130,7 @@ def main():
             print(f"\n>>> [Extra] Running TTA Budget Curves (z_dim={z})")
             subprocess.run([sys.executable, "scripts/tta_budget.py"] + extra_args, check=True)
 
-    print("\nSweep Complete! Results including master COMPARISON are in 'results/tnp' and 'results/ztnp'")
+    print("\nSweep Complete! Results including master COMPARISON are in their respective format roots!")
 
 
 if __name__ == "__main__":
