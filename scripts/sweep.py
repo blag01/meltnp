@@ -113,7 +113,9 @@ def main():
             for r in robust_flags:
                 experiments.append((ds, r, ctx))
     
-    z_dims = [None if z.lower() == "none" else int(z) for z in (args.z_dims or [])]
+    z_dims = []
+    for z in (args.z_dims or []):
+        z_dims.append(None if z.lower() == "none" else int(z))
 
     if run_train:
         run_training_phase(experiments, z_dims)
