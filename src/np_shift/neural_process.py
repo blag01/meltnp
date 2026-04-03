@@ -10,6 +10,10 @@ from torch import Tensor, nn
 class NeuralProcessOutput:
     mean: Tensor
     variance: Tensor
+    prior_mu: Tensor | None = None
+    prior_log_sigma: Tensor | None = None
+    posterior_mu: Tensor | None = None
+    posterior_log_sigma: Tensor | None = None
 
 
 class MLP(nn.Module):
@@ -23,6 +27,22 @@ class MLP(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self.net(x)
+
+
+class LatentEncoder(nn.Module):
+    def __init__(self, x_dim: int, y_dim: int, hidden_dim: int, z_dim: int) -> None:
+        super().__init__()
+        self.encoder = MLP(x_dim + y_dim, hidden_dim, hidden_dim)
+        self.penultimate = nn.Linear(hidden_dim, hidden_dim)
+        self.mu = nn.Linear(hidden_dim, z_dim)
+        self.log_sigma = nn.Linear(hidden_dim, z_dim)
+
+    def forward(self, x: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
+        xy = torch.cat([x, y], dim=-1)
+        r_i = self.encoder(xy)
+        r = r_i.mean(dim=1)
+        r = torch.relu(self.penultimate(r))
+        return self.mu(r), self.log_sigma(r)
 
 
 class TransformerLayer(nn.Module):
@@ -86,6 +106,7 @@ class AttentionNeuralProcess(nn.Module):
         representation_dim: int = 128,
         num_heads: int = 4,
         num_layers: int = 3,
+        z_dim: int | None = None,
     ) -> None:
         super().__init__()
         self.x_dim = x_dim
@@ -95,6 +116,12 @@ class AttentionNeuralProcess(nn.Module):
         # Input embeddings
         self.context_embed = MLP(x_dim + y_dim, hidden_dim, representation_dim)
         self.target_embed = MLP(x_dim, hidden_dim, representation_dim)
+
+        # Latent Path (Optional)
+        self.z_dim = z_dim
+        if z_dim is not None:
+            self.latent_encoder = LatentEncoder(x_dim, y_dim, hidden_dim, z_dim)
+            self.z_proj = nn.Linear(z_dim, representation_dim)
 
         # Stacked transformer layers
         mlp_dim = representation_dim * 2
@@ -116,6 +143,7 @@ class AttentionNeuralProcess(nn.Module):
         context_x: Tensor,
         context_y: Tensor,
         target_x: Tensor,
+        target_y: Tensor | None = None,
         latent_value_shift: Tensor | None = None,
         context_weights: Tensor | None = None,
     ) -> NeuralProcessOutput:
@@ -143,6 +171,27 @@ class AttentionNeuralProcess(nn.Module):
             ctx = ctx + latent_value_shift
         if context_weights is not None:
             ctx = ctx * context_weights
+            
+        prior_m, prior_s, post_m, post_s = None, None, None, None
+        
+        # Inject latent z if active
+        if self.z_dim is not None:
+            prior_m, prior_s = self.latent_encoder(context_x, context_y)
+            if target_y is not None:
+                full_x = torch.cat([context_x, target_x], dim=1)
+                full_y = torch.cat([context_y, target_y], dim=1)
+                post_m, post_s = self.latent_encoder(full_x, full_y)
+                mu, log_sigma = post_m, post_s
+            else:
+                mu, log_sigma = prior_m, prior_s
+                
+            # Reparameterization trick
+            std = torch.exp(log_sigma)
+            z = mu + torch.randn_like(std) * std
+            
+            # Embed and prepend z to context sequence
+            z_embedded = self.z_proj(z).unsqueeze(1)
+            ctx = torch.cat([z_embedded, ctx], dim=1)
 
         # Stacked layers: context self-attention, then target cross-attention
         for self_attn, cross_attn in zip(self.context_self_attn_layers, self.cross_attn_layers):
@@ -155,4 +204,8 @@ class AttentionNeuralProcess(nn.Module):
         decoder_output = self.decoder(decoder_input)
         mean, raw_scale = torch.split(decoder_output, self.y_dim, dim=-1)
         variance = nn.functional.softplus(raw_scale) + 1e-4
-        return NeuralProcessOutput(mean=mean, variance=variance)
+        return NeuralProcessOutput(
+            mean=mean, variance=variance,
+            prior_mu=prior_m, prior_log_sigma=prior_s,
+            posterior_mu=post_m, posterior_log_sigma=post_s
+        )

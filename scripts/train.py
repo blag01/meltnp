@@ -19,7 +19,7 @@ def nll_loss(mean: torch.Tensor, variance: torch.Tensor, y: torch.Tensor) -> tor
 
 
 def train(args):
-    model = AttentionNeuralProcess()
+    model = AttentionNeuralProcess(z_dim=args.z_dim)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
     # Select dataset
@@ -40,10 +40,23 @@ def train(args):
         model.train()
         optimizer.zero_grad()
         
-        output = model(batch.context_x, batch.context_y, batch.target_x)
+        output = model(batch.context_x, batch.context_y, batch.target_x, target_y=batch.target_y)
         
         if batch.target_y is not None:
             loss = nll_loss(output.mean, output.variance, batch.target_y)
+            
+            # Add KL Divergence for ELBO if using Latent TNP
+            if output.posterior_mu is not None:
+                post_mu, post_s = output.posterior_mu, output.posterior_log_sigma
+                prior_mu, prior_s = output.prior_mu, output.prior_log_sigma
+                
+                post_var = torch.exp(2 * post_s)
+                prior_var = torch.exp(2 * prior_s)
+                kl = prior_s - post_s + (post_var + (post_mu - prior_mu)**2) / (2 * prior_var) - 0.5
+                kl = kl.sum(dim=-1).mean()
+                
+                loss = loss + kl / batch.target_y.shape[1]
+
             loss.backward()
             optimizer.step()
         
@@ -90,6 +103,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--dataset", type=str, default="gp", choices=["gp", "sinusoid"])
     parser.add_argument("--num-context", type=int, default=10, help="Number of context points.")
+    parser.add_argument("--z-dim", type=int, default=None, help="Dimension of latent variable z (None = Deterministic TNP).")
     parser.add_argument("--robust", action="store_true", help="Enable random corruptions during training.")
     parser.add_argument("--output", type=str, default="model_weights.pt", help="File to save weights.")
     
