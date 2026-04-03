@@ -96,7 +96,7 @@ def main():
     parser.add_argument("--no-train", action="store_true", help="Blacklist: skip the training phase.")
     parser.add_argument("--no-bench", action="store_true", help="Blacklist: skip the benchmarking phase.")
     parser.add_argument("--no-extra", action="store_true", help="Blacklist: skip the extra TTA scripts (budget and visual prototypes).")
-    parser.add_argument("--z-dim", type=int, default=16, help="Dimension of latent variable z (determines latent root, e.g. results/z16tnp).")
+    parser.add_argument("--z-dims", nargs='+', default=["none", "16"], help="List of z_dims to evaluate (use 'none' for Deterministic TNP).")
     args = parser.parse_args()
 
     run_train = not args.no_train
@@ -113,7 +113,13 @@ def main():
             for r in robust_flags:
                 experiments.append((ds, r, ctx))
     
-    z_dims = [None, args.z_dim]
+    z_dims = []
+    if args.z_dims is not None:
+        for z in args.z_dims:
+            if z.lower() == "none":
+                z_dims.append(None)
+            else:
+                z_dims.append(int(z))
 
     if run_train:
         run_training_phase(experiments, z_dims)
