@@ -20,6 +20,8 @@ def run_training_phase(experiments, z_dim=None):
     """Phase 1: Train all models."""
     for dataset, robust, num_context in experiments:
         mode = "robust" if robust else "vanilla"
+        if z_dim is not None:
+            mode += f"_z{z_dim}"
         output_dir = Path(f"results/{num_context}/{dataset}_{mode}")
         output_dir.mkdir(parents=True, exist_ok=True)
         
@@ -51,6 +53,8 @@ def run_benchmarking_phase(experiments, z_dim=None):
     
     for dataset, robust, num_context in experiments:
         mode = "robust" if robust else "vanilla"
+        if z_dim is not None:
+            mode += f"_z{z_dim}"
         model_name = f"{dataset}_{mode}_{num_context}"
         weights_path = Path(f"results/{num_context}/{dataset}_{mode}/weights.pt")
         

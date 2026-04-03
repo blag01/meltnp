@@ -40,7 +40,8 @@ def nll_loss(mean, var, target_y):
 
 def run_test_time_adaptation(z_dim=None):
     print("--- Test-Time Parameterized Denoising Prototype ---")
-    weights_path = Path("results/10/sinusoid_vanilla/weights.pt")
+    mode = f"vanilla_z{z_dim}" if z_dim else "vanilla"
+    weights_path = Path(f"results/10/sinusoid_{mode}/weights.pt")
     if not weights_path.exists():
         print(f"Error: {weights_path} not found. Run 'uv run python scripts/sweep.py' first.")
         return
@@ -115,14 +116,14 @@ def run_test_time_adaptation(z_dim=None):
         final_mean = out_after.mean + target_shift
 
     # Save visual comparison
-    out_dir = Path("results/10/test_time_adaptation")
+    out_dir = Path(f"results/10/test_time_adaptation{'_z'+str(z_dim) if z_dim else ''}")
     out_dir.mkdir(exist_ok=True, parents=True)
     
     # Plot Before
     plot_np_task(
         batch.context_x, batch.context_y, full_tgt_x, full_tgt_y,
         out_before.mean, out_before.variance, context_y_clean=batch.context_y_clean,
-        title=f"BEFORE Adaptation (Vanilla Model, Hetero Noise)",
+        title=f"BEFORE Adaptation ({'Latent' if z_dim else 'Vanilla'} Model, Hetero Noise)",
         save_path=str(out_dir / "before_mlp.png")
     )
     
