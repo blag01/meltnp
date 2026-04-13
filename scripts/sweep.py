@@ -23,24 +23,24 @@ def run_training_phase(experiments, z_dims):
             mode = "robust" if robust else "vanilla"
             root = "results/tnp" if z_dim is None else f"results/z{z_dim}tnp"
             output_dir = Path(f"{root}/{num_context}/{dataset}_{mode}")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        weights_path = output_dir / "weights.pt"
-        
-        cmd = [
-            sys.executable, "scripts/train.py",
-            "--dataset", dataset,
-            "--num-context", str(num_context),
-            "--epochs", "1000",
-            "--output", str(weights_path)
-        ]
-        if robust:
-            cmd.append("--robust")
-        if z_dim is not None:
-            cmd.extend(["--z-dim", str(z_dim)])
+            output_dir.mkdir(parents=True, exist_ok=True)
             
-        print(f"\n>>> [Train] {dataset}_{num_context} ({mode})")
-        subprocess.run(cmd, check=True)
+            weights_path = output_dir / "weights.pt"
+            
+            cmd = [
+                sys.executable, "scripts/train.py",
+                "--dataset", dataset,
+                "--num-context", str(num_context),
+                "--epochs", "1000",
+                "--output", str(weights_path)
+            ]
+            if robust:
+                cmd.append("--robust")
+            if z_dim is not None:
+                cmd.extend(["--z-dim", str(z_dim)])
+                
+            print(f"\n>>> [Train] {dataset}_{num_context} ({mode})")
+            subprocess.run(cmd, check=True)
 
 def run_benchmarking_phase(experiments, z_dims):
     """Phase 2 & 3: Benchmark and Report."""
@@ -61,26 +61,26 @@ def run_benchmarking_phase(experiments, z_dims):
             model_name = f"{dataset}_{mode}_{num_context}"
             weights_path = Path(f"{root}/{num_context}/{dataset}_{mode}/weights.pt")
         
-        if not weights_path.exists():
-            continue
+            if not weights_path.exists():
+                continue
+                
+            model = AttentionNeuralProcess(z_dim=z_dim)
+            model.load_state_dict(torch.load(weights_path, weights_only=True))
+            model.eval()
             
-        model = AttentionNeuralProcess(z_dim=z_dim)
-        model.load_state_dict(torch.load(weights_path, weights_only=True))
-        model.eval()
-        
-        print(f"Stress-testing model: {model_name}...")
-        for st in shift_types:
-            all_results[(dataset, num_context, z_dim)][st][model_name] = run_stress_test(
-                model, dataset, st, num_context=num_context)
-            
-        # Add TTA tracks for vanilla models to compare against explicitly robust ones
-        if not robust:
-            for tta_method in ["mlp", "reweight", "latent"]:
-                tta_name = f"{model_name}_tta_{tta_method}"
-                print(f"Stress-testing model: {tta_name} (with inference-time optimization)...")
-                for st in shift_types:
-                    all_results[(dataset, num_context, z_dim)][st][tta_name] = run_stress_test(
-                        model, dataset, st, adapt_method=tta_method, num_context=num_context)
+            print(f"Stress-testing model: {model_name}...")
+            for st in shift_types:
+                all_results[(dataset, num_context, z_dim)][st][model_name] = run_stress_test(
+                    model, dataset, st, num_context=num_context)
+                
+            # Add TTA tracks for vanilla models to compare against explicitly robust ones
+            if not robust:
+                for tta_method in ["mlp", "reweight", "latent"]:
+                    tta_name = f"{model_name}_tta_{tta_method}"
+                    print(f"Stress-testing model: {tta_name} (with inference-time optimization)...")
+                    for st in shift_types:
+                        all_results[(dataset, num_context, z_dim)][st][tta_name] = run_stress_test(
+                            model, dataset, st, adapt_method=tta_method, num_context=num_context)
 
     print("Generating Comparative Robustness Curves...")
     for ds, ctx, z_dim in groups:
