@@ -97,8 +97,15 @@ def main():
     parser.add_argument("--no-bench", action="store_true", help="Blacklist: skip the benchmarking phase.")
     parser.add_argument("--no-extra", action="store_true", help="Blacklist: skip the extra TTA scripts (budget and visual prototypes).")
     parser.add_argument("--z-dims", nargs='+', default=["none", "16"], help="List of z_dims to evaluate (use 'none' for Deterministic TNP).")
+    parser.add_argument("--clean", action="store_true", help="Delete the results/ directory before doing anything else.")
     args = parser.parse_args()
 
+    if args.clean:
+        import shutil
+        if Path("results").exists():
+            print(">>> [Cleanup] Deleting entire results/ directory to remove stale artifacts...")
+            shutil.rmtree("results")
+            
     run_train = not args.no_train
     run_bench = not args.no_bench
     run_extra = not args.no_extra
