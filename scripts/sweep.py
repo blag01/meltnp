@@ -46,7 +46,10 @@ def run_benchmarking_phase(experiments, z_dims):
     """Phase 2 & 3: Benchmark and Report."""
     print("\nStarting scientific benchmarking phase...")
     shift_types = ["noise", "bias", "hetero", "warp", "outlier", "covariate"]
-    groups = sorted(set((d, c, z) for d, _, c in experiments for z in z_dims))
+    groups = sorted(
+        set((d, c, z) for d, _, c in experiments for z in z_dims),
+        key=lambda x: (x[0], x[1], x[2] if x[2] is not None else -1)
+    )
     
     # Structure: {(dataset, num_context, z_dim): {shift_type: {model_name: results}}}
     all_results = {g: {st: {} for st in shift_types} for g in groups}
