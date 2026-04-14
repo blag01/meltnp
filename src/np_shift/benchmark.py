@@ -18,12 +18,17 @@ def evaluate_model(model, data_gen, corruption_fn=None, num_tasks=50, adapt_meth
         for _ in range(num_tasks):
             batch = data_gen.generate_batch(corruption_fn=corruption_fn, context_x_range=context_x_range)
             
-            if adapt_method == "mlp":
-                mean, var = adapt_and_predict_mlp(model, batch, num_steps=50)
-            elif adapt_method == "reweight":
-                mean, var = adapt_and_predict_reweight(model, batch, num_steps=50)
-            elif adapt_method == "latent":
-                mean, var = adapt_and_predict_latent(model, batch, num_steps=50)
+            if adapt_method is not None and adapt_method.replace("_sgld", "") in ["mlp", "reweight", "latent"]:
+                use_sgld = adapt_method.endswith("_sgld")
+                base_method = adapt_method.replace("_sgld", "")
+                noise_scale = 0.05 if use_sgld else 0.0
+                
+                if base_method == "mlp":
+                    mean, var = adapt_and_predict_mlp(model, batch, num_steps=50, sgld_noise_scale=noise_scale)
+                elif base_method == "reweight":
+                    mean, var = adapt_and_predict_reweight(model, batch, num_steps=50, sgld_noise_scale=noise_scale)
+                elif base_method == "latent":
+                    mean, var = adapt_and_predict_latent(model, batch, num_steps=50, sgld_noise_scale=noise_scale)
             else:
                 output = model(batch.context_x, batch.context_y, batch.target_x)
                 mean, var = output.mean, output.variance

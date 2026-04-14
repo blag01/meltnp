@@ -75,7 +75,7 @@ def run_benchmarking_phase(experiments, z_dims):
                 
             # Add TTA tracks for vanilla models to compare against explicitly robust ones
             if not robust:
-                for tta_method in ["mlp", "reweight", "latent"]:
+                for tta_method in ["mlp", "reweight", "latent", "mlp_sgld"]:
                     tta_name = f"{model_name}_tta_{tta_method}"
                     print(f"Stress-testing model: {tta_name} (with inference-time optimization)...")
                     for st in shift_types:

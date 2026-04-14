@@ -31,7 +31,7 @@ def run_budget_analysis(z_dim=None):
     ]
 
     step_budgets = [0, 5, 10, 20, 50, 100, 200]
-    tta_methods = ["mlp", "reweight", "latent"]
+    tta_methods = ["mlp", "reweight", "latent", "mlp_sgld"]
 
     root = "results/tnp" if z_dim is None else f"results/z{z_dim}tnp"
     out_dir = Path(f"{root}/10/tta_budget")
@@ -71,12 +71,16 @@ def run_budget_analysis(z_dim=None):
                         "reweight": adapt_and_predict_reweight,
                         "latent": adapt_and_predict_latent,
                     }
+                    
+                    use_sgld = method.endswith("_sgld")
+                    base_method = method.replace("_sgld", "")
+                    noise_scale = 0.05 if use_sgld else 0.0
 
                     # Run evaluation manually with custom step count
                     losses = []
                     for _ in range(10):
                         batch = data_gen.generate_batch(corruption_fn=corruption_fn)
-                        mean, var = adapt_fns[method](model, batch, num_steps=n_steps)
+                        mean, var = adapt_fns[base_method](model, batch, num_steps=n_steps, sgld_noise_scale=noise_scale)
                         y = batch.target_y
                         log_p = -0.5 * torch.log(2 * np.pi * var) - 0.5 * (y - mean)**2 / var
                         losses.append(-log_p.mean().item())

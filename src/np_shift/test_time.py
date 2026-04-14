@@ -30,7 +30,7 @@ def nll_loss(mean, var, target_y):
     """Gaussian NLL."""
     return (0.5 * torch.log(2 * torch.pi * var) + 0.5 * (target_y - mean)**2 / var).mean()
 
-def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100):
+def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0):
     """Adapt via a learned denoising network. Returns (mean, variance)."""
     model.eval()
     
@@ -58,6 +58,11 @@ def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100):
             loss = nll_loss(out.mean, out.variance, denoised_y_B)
             loss.backward()
             optimizer.step()
+            
+            if sgld_noise_scale > 0.0:
+                with torch.no_grad():
+                    for param in denoiser.parameters():
+                        param.add_(torch.randn_like(param) * sgld_noise_scale)
 
     with torch.no_grad():
         final_shift = denoiser(batch.context_x, batch.context_y)
@@ -69,7 +74,7 @@ def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100):
     return final_mean, out_after.variance
 
 
-def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100):
+def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0):
     """Adapt via per-point attention weights. Returns (mean, variance)."""
     model.eval()
     num_ctx = batch.context_x.size(1)
@@ -98,6 +103,10 @@ def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100):
             loss = nll_loss(out_B.mean, out_B.variance, ctx_y_B) + nll_loss(out_A.mean, out_A.variance, ctx_y_A)
             loss.backward()
             optimizer.step()
+            
+            if sgld_noise_scale > 0.0:
+                with torch.no_grad():
+                    logit_w.add_(torch.randn_like(logit_w) * sgld_noise_scale)
 
     with torch.no_grad():
         final_w = torch.sigmoid(logit_w)
@@ -105,7 +114,7 @@ def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100):
         return out_after.mean, out_after.variance
 
 
-def adapt_and_predict_latent(model, batch: NPBatch, num_steps: int = 100):
+def adapt_and_predict_latent(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0):
     """Adapt via learnable offset in representation space. Returns (mean, variance)."""
     model.eval()
     num_ctx = batch.context_x.size(1)
@@ -131,6 +140,10 @@ def adapt_and_predict_latent(model, batch: NPBatch, num_steps: int = 100):
             loss = nll_loss(out_B.mean, out_B.variance, ctx_y_B) + nll_loss(out_A.mean, out_A.variance, ctx_y_A)
             loss.backward()
             optimizer.step()
+            
+            if sgld_noise_scale > 0.0:
+                with torch.no_grad():
+                    latent_shift.add_(torch.randn_like(latent_shift) * sgld_noise_scale)
 
     with torch.no_grad():
         out_after = model(batch.context_x, batch.context_y, batch.target_x, latent_value_shift=latent_shift)
