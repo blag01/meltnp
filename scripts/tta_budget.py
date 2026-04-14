@@ -31,7 +31,7 @@ def run_budget_analysis(z_dim=None):
     ]
 
     step_budgets = [0, 5, 10, 20, 50, 100, 200]
-    tta_methods = ["mlp", "reweight", "latent", "mlp_sgld_0.01", "mlp_sgld_0.05", "mlp_sgld_0.1"]
+    tta_methods = ["mlp", "reweight", "latent", "mlp_sgld_0.01", "mlp_sgld_0.05", "mlp_sgld_0.1", "mlp_sgld_0.2"]
 
     root = "results/tnp" if z_dim is None else f"results/z{z_dim}tnp"
     out_dir = Path(f"{root}/10/tta_budget")
