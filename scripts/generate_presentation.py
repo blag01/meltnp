@@ -47,7 +47,7 @@ slide = prs.slides.add_slide(title_slide_layout)
 title = slide.shapes.title
 subtitle = slide.placeholders[1]
 title.text = "Scaling Transformer Neural Processes"
-subtitle.text = "Robustness Benchmarking and Test-Time Adaptation\nPrepared automatically."
+subtitle.text = "Robustness Benchmarking and Test-Time Adaptation"
 
 # Slide 2: Core Problem
 add_slide("The Core Problem", [
@@ -56,9 +56,9 @@ add_slide("The Core Problem", [
     "Our goal: Create a framework capable of measuring robustness under distribution shift."
 ])
 
-# Slide 3: TNP Architecture Upgrades
-add_slide("TNP Architecture Upgrades", [
-    "Moving from flat Cross-Attention to deep Transformer Neural Processes (TNP) (L=3 stacked Transformers with residual connections).",
+# Slide 3: Model Architecture
+add_slide("Model Architecture: Transformer Neural Process", [
+    "Moving from flat mean-aggregation (classical NP) to deep Transformer Neural Processes (TNP) (L=3 stacked Transformers with residual connections).",
     "Optional Latent TNP path via Latent Encoders.",
     "Targeted regularized ELBO sampling for stochastic uncertainty bands."
 ], ["results/tnp/10/gp_robust/weights.png"])
