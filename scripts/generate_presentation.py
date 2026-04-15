@@ -65,12 +65,14 @@ add_slide("TNP Architecture Upgrades", [
 
 # Slide 4: Structured Benchmarking Suite
 add_slide("Structured Benchmarking Suite", [
-    "Developed an automated execution pipeline tracking three rigorous dimensions: (NLL, MSE, ECE).",
-    "Introduced 6 structured mathematical corruptions:",
-    " - Heteroskedastic scaling",
-    " - Extreme Outlier injection",
-    " - Covariate Shift",
-    " - Warp Shift, Bias, and pure Noise"
+    "Automated pipeline measuring NLL, MSE, and ECE across 10 corruption levels (0.0 to 2.0).",
+    "The x-axis is the raw corruption parameter, not a normalised score:",
+    " - Gaussian Noise: sigma (std dev of additive noise, e.g. 2.0 = noise as large as the signal)",
+    " - Bias: constant offset added to all y values",
+    " - Heteroskedastic: scale factor s of input-dependent noise (noise = s * |x|)",
+    " - Outlier: fraction of context replaced with extreme values",
+    " - Covariate shift: translation of the test x distribution",
+    " - Warp: degree of nonlinear axis distortion",
 ], ["results/tnp/10/plots/outlier/sinusoid_nll.png"])
 
 # Slide 5: Test-Time Adaptation Concepts
