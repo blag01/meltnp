@@ -9,3 +9,6 @@ build/
 results/
 
 assets/
+
+# Ignore MS Office lock files
+~*
