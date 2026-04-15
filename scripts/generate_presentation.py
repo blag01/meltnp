@@ -74,33 +74,33 @@ add_slide("Structured Benchmarking Suite", [
 ], ["results/tnp/10/plots/outlier/sinusoid_nll.png"])
 
 # Slide 5: Test-Time Adaptation Concepts
-add_slide("The 'Magic' of Test-Time Adaptation", [
-    "Adapting cleanly to corruption at inference time *without any labels*.",
-    "Using Bidirectional Pseudo-Likelihood Optimization where the TNP acts as a structural prior.",
-    "MLPs natively learn to 'subtract' structural noise until the manifold looks consistently predictable."
+add_slide("Test-Time Adaptation via Pseudo-Likelihood Optimization", [
+    "Adapting to corruption at inference time without access to ground-truth labels.",
+    "A small MLP is prepended to the frozen TNP and optimized end-to-end using pseudo-likelihood.",
+    "The MLP learns a denoising transformation: the TNP's own NLL serves as the only supervision signal."
 ])
 
 # Slide 6: Visualizing the Adaptation
-add_slide("Visualizing Denoising Adaptation", [
-    "Comparing the Neural Process's predictive uncertainty BEFORE and AFTER unsupervised gradient descent.",
-    "Left: The noisy data causes total predictive collapse.",
-    "Right: The MLP cleans the data; the NP collapses its variance back onto the precise sine wave."
+add_slide("Predictive Quality: Before vs After Adaptation", [
+    "Comparing the TNP's predictive distribution before and after the MLP optimization.",
+    "Left: High NLL under heavy corruption; wide, uninformative uncertainty bands.",
+    "Right: After adaptation, uncertainty concentrates around the inferred function."
 ], [
     "results/tnp/10/test_time_adaptation/before_mlp.png",
     "results/tnp/10/test_time_adaptation/after_mlp.png"
 ])
 
 # Slide 7: Adaptation Descent Curve
-add_slide("Adaptation Descent Profile", [
-    "The Negative Log-Likelihood drops violently within the first 50 iterations.",
-    "The NP pulls the small noise-mapping parameters down into the nearest high-probability manifold."
+add_slide("NLL Minimization during Adaptation", [
+    "NLL decreases rapidly within the first 50 gradient steps.",
+    "The MLP converges to a denoising transformation consistent with the TNP's training prior."
 ], ["results/tnp/10/test_time_adaptation/optimization_curve_mlp.png"])
 
-# Slide 8: Langevin Dynamics (SGLD)
-add_slide("Escaping Sinkholes with Langevin Dynamics (SGLD)", [
-    "Maximum Likelihood (MLE) alone often gets stuck mapping noise into trivial flat geometries.",
-    "By injecting parameterized Langevin noise (diffusion) directly into parameter updates, the adaptation easily escapes local minima!",
-    "Comparing different intensities of diffusion prevents the manifold from folding."
+# Slide 8: Stochastic Gradient Langevin Dynamics (SGLD)
+add_slide("Regularizing Adaptation with SGLD", [
+    "Standard gradient descent can converge to degenerate local minima (e.g. constant zero predictions).",
+    "SGLD injects calibrated Gaussian noise into parameter updates to encourage exploration of the loss landscape.",
+    "Varying noise scale sigma controls the trade-off between exploration and convergence stability."
 ], ["results/tnp/10/tta_budget/budget_sinusoid_Heteroskedastic_s1.0.png"])
 
 Path("assets").mkdir(exist_ok=True)
