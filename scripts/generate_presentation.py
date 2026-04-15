@@ -103,6 +103,7 @@ add_slide("Escaping Sinkholes with Langevin Dynamics (SGLD)", [
     "Comparing different intensities of diffusion prevents the manifold from folding."
 ], ["results/tnp/10/tta_budget/budget_sinusoid_Heteroskedastic_s1.0.png"])
 
-output_path = "Neural_Processes_Robustness_Presentation.pptx"
+Path("assets").mkdir(exist_ok=True)
+output_path = "assets/Neural_Processes_Robustness_Presentation.pptx"
 prs.save(output_path)
 print(f"Presentation saved successfully to {output_path}")
