@@ -110,10 +110,14 @@ def run_benchmarking_phase(experiments, z_dims):
 HELP_TEXT = """\
 Neural Processes under Distribution Shift — run.py
 
-Subcommands:
-  sweep          Run the full experiment pipeline (train → benchmark → TTA → budget curves).
-  presentation   Generate the PowerPoint slide deck (requires python-pptx dev dependency).
-  help           Show this message.
+Shorthand commands (recommended):
+  train        Full run from scratch: train → benchmark → TTA → budget curves.
+  plot         Re-run benchmark + extras on existing weights (skip training).
+  present      Generate the PowerPoint slide deck.
+
+Full command:
+  sweep        Run experiment pipeline with custom flags (see below).
+  help         Show this message.
 
 Sweep flags:
   --z-dims none 16   Model variants (none = deterministic TNP, 16 = Latent TNP).
@@ -124,9 +128,9 @@ Sweep flags:
   --no-extra         Skip TTA visual and budget scripts.
 
 Examples:
-  uv run python scripts/run.py sweep --z-dims none 16 --clean
-  uv run python scripts/run.py sweep --plots-only
-  uv run python scripts/run.py presentation
+  uv run python scripts/run.py train
+  uv run python scripts/run.py plot
+  uv run python scripts/run.py sweep --no-extra --z-dims none
 """
 
 
@@ -262,7 +266,27 @@ def cmd_help(_argv):
     print(HELP_TEXT)
 
 
+def cmd_train(_argv):
+    """Shorthand: full run from scratch."""
+    cmd_sweep(["--clean"])
+
+
+def cmd_plot(_argv):
+    """Shorthand: re-run benchmark + extras on existing weights."""
+    cmd_sweep(["--plots-only"])
+
+
+def cmd_present(argv):
+    """Shorthand alias for presentation."""
+    cmd_presentation(argv)
+
+
 COMMANDS = {
+    # Shorthands
+    "train":        cmd_train,
+    "plot":         cmd_plot,
+    "present":      cmd_present,
+    # Full control
     "sweep":        cmd_sweep,
     "presentation": cmd_presentation,
     "help":         cmd_help,
