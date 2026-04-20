@@ -96,12 +96,16 @@ def run_benchmarking_phase(experiments, z_dims):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Run the full benchmarking sweep.")
-    parser.add_argument("--no-train", action="store_true", help="Blacklist: skip the training phase.")
-    parser.add_argument("--no-bench", action="store_true", help="Blacklist: skip the benchmarking phase.")
-    parser.add_argument("--no-extra", action="store_true", help="Blacklist: skip the extra TTA scripts (budget and visual prototypes).")
-    parser.add_argument("--z-dims", nargs='+', default=["none", "16"], help="List of z_dims to evaluate (use 'none' for Deterministic TNP).")
+    parser.add_argument("--no-train", action="store_true", help="Skip the training phase.")
+    parser.add_argument("--no-bench", action="store_true", help="Skip the benchmarking phase.")
+    parser.add_argument("--no-extra", action="store_true", help="Skip extra TTA scripts (budget and visual prototypes).")
+    parser.add_argument("--plots-only", action="store_true", help="Shorthand: skip training, re-run benchmark + extra on existing weights.")
+    parser.add_argument("--z-dims", nargs='+', default=["none", "16"], help="List of z_dims to evaluate (use 'none' for deterministic TNP).")
     parser.add_argument("--clean", action="store_true", help="Delete the results/ directory before doing anything else.")
     args = parser.parse_args()
+
+    if args.plots_only:
+        args.no_train = True
 
     if args.clean:
         import shutil
