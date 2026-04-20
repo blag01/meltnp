@@ -12,3 +12,4 @@ assets/
 
 # Ignore MS Office lock files
 ~*
+.DS_Store
