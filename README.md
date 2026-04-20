@@ -11,7 +11,7 @@ uv sync
 ## Reproducing all results
 
 ```bash
-uv run python scripts/run.py train    # full run: train → benchmark → TTA → budget curves
+uv run python scripts/run.py all     # full run: train → benchmark → TTA → budget curves
 uv run python scripts/run.py plot     # re-run benchmark + extras on existing weights
 uv run python scripts/run.py present  # generate assets/Neural_Processes_Robustness_Presentation.pptx
 uv run python scripts/run.py help     # show all options and sweep flags

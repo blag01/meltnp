@@ -111,7 +111,7 @@ HELP_TEXT = """\
 Neural Processes under Distribution Shift — run.py
 
 Shorthand commands (recommended):
-  train        Full run from scratch: train → benchmark → TTA → budget curves.
+  all          Full run from scratch: train → benchmark → TTA → budget curves.
   plot         Re-run benchmark + extras on existing weights (skip training).
   present      Generate the PowerPoint slide deck.
 
@@ -128,7 +128,7 @@ Sweep flags:
   --no-extra         Skip TTA visual and budget scripts.
 
 Examples:
-  uv run python scripts/run.py train
+  uv run python scripts/run.py all
   uv run python scripts/run.py plot
   uv run python scripts/run.py sweep --no-extra --z-dims none
 """
@@ -266,7 +266,7 @@ def cmd_help(_argv):
     print(HELP_TEXT)
 
 
-def cmd_train(_argv):
+def cmd_all(_argv):
     """Shorthand: full run from scratch."""
     cmd_sweep(["--clean"])
 
@@ -283,7 +283,7 @@ def cmd_present(argv):
 
 COMMANDS = {
     # Shorthands
-    "train":        cmd_train,
+    "all":          cmd_all,
     "plot":         cmd_plot,
     "present":      cmd_present,
     # Full control
