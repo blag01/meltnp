@@ -11,14 +11,10 @@ uv sync
 ## Reproducing all results
 
 ```bash
-# Full run: train → benchmark → TTA visuals → budget curves
-uv run python scripts/run.py sweep --z-dims none 16 --clean
-
-# Re-plot only (skip training, use existing weights)
-uv run python scripts/run.py sweep --plots-only --z-dims none 16
-
-# Show all options
-uv run python scripts/run.py help
+make sweep        # full run: train → benchmark → TTA → budget curves
+make replot       # skip training, re-run benchmark + extras on existing weights
+make presentation # generate assets/Neural_Processes_Robustness_Presentation.pptx
+make help         # show all run.py options
 ```
 
 Outputs land in `results/tnp/` (deterministic) and `results/z16tnp/` (latent).
