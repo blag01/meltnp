@@ -72,7 +72,18 @@ def run_benchmarking_phase(experiments, z_dims):
             if not weights_path.exists():
                 continue
 
-            model = AttentionNeuralProcess(z_dim=z_dim)
+            # Load model with dynamically inferred feature dim
+            if dataset == "gp":
+                from np_shift import GPData
+                x_dim = GPData().generate_batch().context_x.shape[-1]
+            elif dataset == "sinusoid":
+                from np_shift import SinusoidData
+                x_dim = SinusoidData().generate_batch().context_x.shape[-1]
+            elif dataset == "uci":
+                from np_shift.data import UCIData
+                x_dim = UCIData("california").generate_batch().context_x.shape[-1]
+                
+            model = AttentionNeuralProcess(x_dim=x_dim, z_dim=z_dim)
             model.load_state_dict(torch.load(weights_path, weights_only=True))
             model.eval()
 
@@ -101,6 +112,72 @@ def run_benchmarking_phase(experiments, z_dims):
                 st_dir.mkdir(parents=True, exist_ok=True)
                 plot_robustness_curves(all_results[(ds, ctx, z_dim)][st], str(st_dir), file_prefix=ds)
     print("All robustness plots saved.")
+    
+    # ─── New Calibration Analysis Phase ───
+    # If we evaluated both TNP and Latent TNP, compare their calibration (ECE) directly
+    if None in z_dims and 16 in z_dims:
+        from np_shift.calibration import plot_calibration_comparison
+        print("\nGenerating Calibration Comparison (Deterministic vs Latent TNP)...")
+        # We'll plot this for the sinusoid dataset at 10 context points where shift impacts are easiest to read
+        target_ds = "sinusoid"
+        target_ctx = 10
+        det_res = all_results.get((target_ds, target_ctx, None))
+        lat_res = all_results.get((target_ds, target_ctx, 16))
+        
+        if det_res and lat_res:
+            save_path = f"results/calibration_ece_comparison_{target_ds}_{target_ctx}.png"
+            plot_calibration_comparison(det_res, lat_res, save_path)
+
+
+def run_transfer_phase(experiments, z_dims):
+    """Phase 4: Build Cross-Corruption Transfer Matrix."""
+    from np_shift.transfer import run_transfer_matrix
+    from np_shift import AttentionNeuralProcess
+    
+    print("\nStarting Cross-Corruption Transfer Analysis...")
+    # Train corruptions we care about
+    robust_types = ["clean", "noise", "bias", "hetero", "warp", "outlier"]
+    
+    for z_dim in z_dims:
+        # Transfer is most interesting for the hardest task: sinusoid, small context
+        ds = "sinusoid"
+        ctx = 10
+        root = "results/tnp" if z_dim is None else f"results/z{z_dim}tnp"
+        
+        models_by_corr = {}
+        for rtype in robust_types:
+            output_dir = Path(f"{root}/{ctx}/transfer_{rtype}")
+            weights_path = output_dir / "weights.pt"
+            
+            # Train if missing
+            if not weights_path.exists():
+                output_dir.mkdir(parents=True, exist_ok=True)
+                cmd = [
+                    sys.executable, str(Path(__file__).parent / "train.py"),
+                    "--dataset", ds,
+                    "--num-context", str(ctx),
+                    "--epochs", "1000",
+                    "--output", str(weights_path),
+                    "--robust-type", rtype,
+                ]
+                # Force standard robust flag so the script knows we are augmenting
+                if rtype != "clean":
+                    cmd.append("--robust")
+                if z_dim is not None:
+                    cmd.extend(["--z-dim", str(z_dim)])
+                
+                print(f"  [Transfer Train] {rtype}")
+                subprocess.run(cmd, check=True)
+                
+            # Load
+            from np_shift import SinusoidData
+            x_dim = SinusoidData().generate_batch().context_x.shape[-1]
+            model = AttentionNeuralProcess(x_dim=x_dim, z_dim=z_dim)
+            model.load_state_dict(torch.load(weights_path, weights_only=True))
+            models_by_corr[rtype] = model
+            
+        save_path = f"{root}/{ctx}/transfer_matrix.png"
+        run_transfer_matrix(models_by_corr, ds, ctx, save_path)
 
 
 # ──────────────────────────────────────────────
@@ -125,6 +202,7 @@ Sweep flags:
   --plots-only       Skip training; re-run benchmark + extras on existing weights.
   --no-train         Skip training phase only.
   --no-bench         Skip benchmarking phase only.
+  --no-transfer      Skip transfer matrix generation.
   --no-extra         Skip TTA visual and budget scripts.
 
 Examples:
@@ -139,6 +217,7 @@ def cmd_sweep(argv):
     parser = argparse.ArgumentParser(prog="run.py sweep")
     parser.add_argument("--no-train",   action="store_true")
     parser.add_argument("--no-bench",   action="store_true")
+    parser.add_argument("--no-transfer",action="store_true")
     parser.add_argument("--no-extra",   action="store_true")
     parser.add_argument("--plots-only", action="store_true")
     parser.add_argument("--z-dims", nargs="+", default=["none", "16"])
@@ -156,7 +235,7 @@ def cmd_sweep(argv):
 
     z_dims = [None if z.lower() == "none" else int(z) for z in args.z_dims]
 
-    datasets      = ["gp", "sinusoid"]
+    datasets      = ["gp", "sinusoid", "uci"]
     robust_flags  = [False, True]
     context_sizes = [10, 20, 40]
     experiments   = [(ds, r, ctx)
@@ -176,6 +255,9 @@ def cmd_sweep(argv):
             subprocess.run([sys.executable, str(scripts / "test_time_adapt.py")] + extra, check=True)
             print(f"\n>>> [Extra] TTA Budget Curves (z_dim={z})")
             subprocess.run([sys.executable, str(scripts / "tta_budget.py")] + extra, check=True)
+
+    if not args.no_transfer:
+        run_transfer_phase(experiments, z_dims)
 
     print("\nSweep complete.")
 

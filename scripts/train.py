@@ -19,19 +19,55 @@ def nll_loss(mean: torch.Tensor, variance: torch.Tensor, y: torch.Tensor) -> tor
 
 
 def train(args):
-    model = AttentionNeuralProcess(z_dim=args.z_dim)
+    # Select dataset
+    if args.dataset == "gp":
+        data_gen = GPData(batch_size=args.batch_size, num_context=args.num_context)
+    elif args.dataset == "sinusoid":
+        data_gen = SinusoidData(batch_size=args.batch_size, num_context=args.num_context)
+    elif args.dataset == "uci":
+        from np_shift.data import UCIData
+        data_gen = UCIData(dataset_name="california", batch_size=args.batch_size, num_context=args.num_context)
+    else:
+        raise ValueError(f"Unknown dataset {args.dataset}")
+        
+    # Get arbitrary feature dimension (needed for UCI where x_dim=8)
+    dummy_batch = data_gen.generate_batch()
+    x_dim = dummy_batch.context_x.shape[-1]
+    
+    model = AttentionNeuralProcess(x_dim=x_dim, z_dim=args.z_dim)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     
-    # Select dataset
-    DataClass = GPData if args.dataset == "gp" else SinusoidData
-    data_gen = DataClass(batch_size=args.batch_size, num_context=args.num_context)
-    
     # Configure potential corruptions
-    corruptions = [None]
-    if args.robust:
-        corruptions += [add_gaussian_noise, apply_bias_shift]
+    if not args.robust:
+        args.robust_type = "clean"
+        
+    corruptions = []
+    if args.robust_type == "clean":
+        corruptions = [None]
+    elif args.robust_type == "noise":
+        corruptions = [lambda x, y: add_gaussian_noise(x, y, std=1.0)]
+    elif args.robust_type == "bias":
+        corruptions = [lambda x, y: apply_bias_shift(x, y, shift_range=(1.0, 1.0))]
+    elif args.robust_type == "hetero":
+        from np_shift.data import heteroskedastic_noise
+        corruptions = [lambda x, y: heteroskedastic_noise(x, y, scale_factor=1.0)]
+    elif args.robust_type == "warp":
+        from np_shift.data import apply_warp_shift
+        corruptions = [lambda x, y: apply_warp_shift(x, y, warp_power=2.0)]
+    elif args.robust_type == "outlier":
+        from np_shift.data import inject_outliers
+        corruptions = [lambda x, y: inject_outliers(x, y, fraction=0.3, magnitude=5.0)]
+    elif args.robust_type == "all":
+        import np_shift.data as dt
+        corruptions = [
+            None,
+            lambda x, y: dt.add_gaussian_noise(x, y, std=1.0),
+            lambda x, y: dt.apply_bias_shift(x, y, shift_range=(1.0, 1.0)),
+        ]
+    else:
+        raise ValueError(f"Unknown robust-type {args.robust_type}")
 
-    print(f"Training on {args.dataset} (robust={args.robust}) for {args.epochs} epochs...")
+    print(f"Training on {args.dataset} (robust_type={args.robust_type}) for {args.epochs} epochs...")
 
     for epoch in range(args.epochs):
         corr_fn = corruptions[torch.randint(0, len(corruptions), (1,)).item()]
@@ -101,10 +137,11 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=1000)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--dataset", type=str, default="gp", choices=["gp", "sinusoid"])
+    parser.add_argument("--dataset", type=str, default="gp", choices=["gp", "sinusoid", "uci"])
     parser.add_argument("--num-context", type=int, default=10, help="Number of context points.")
     parser.add_argument("--z-dim", type=int, default=None, help="Dimension of latent variable z (None = Deterministic TNP).")
     parser.add_argument("--robust", action="store_true", help="Enable random corruptions during training.")
+    parser.add_argument("--robust-type", type=str, default="all", choices=["clean", "noise", "bias", "hetero", "warp", "outlier", "all"], help="Specific corruption to train against.")
     parser.add_argument("--output", type=str, default="model_weights.pt", help="File to save weights.")
     
     args = parser.parse_args()
