@@ -10,14 +10,15 @@ uv sync
 
 ## Reproducing all results
 
-**Full run** (trains all models, benchmarks, TTA visuals, budget curves):
 ```bash
-uv run python scripts/sweep.py --z-dims none 16 --clean
-```
+# Full run: train → benchmark → TTA visuals → budget curves
+uv run python scripts/run.py sweep --z-dims none 16 --clean
 
-**Re-plot only** (skip training, re-run benchmark and extras on existing weights):
-```bash
-uv run python scripts/sweep.py --plots-only --z-dims none 16
+# Re-plot only (skip training, use existing weights)
+uv run python scripts/run.py sweep --plots-only --z-dims none 16
+
+# Show all options
+uv run python scripts/run.py help
 ```
 
 Outputs land in `results/tnp/` (deterministic) and `results/z16tnp/` (latent).
