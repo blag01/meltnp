@@ -110,10 +110,7 @@ def run_test_time_adaptation(z_dim=None):
         final_denoised_context = batch.context_y - final_shift
         
         out_after = model(batch.context_x, final_denoised_context, full_tgt_x)
-        
-        # Reproject predictions back into the corrupted space so they align with the true noisy targets
-        target_shift = denoiser(full_tgt_x, out_after.mean)
-        final_mean = out_after.mean + target_shift
+        final_mean = out_after.mean
 
     # Save visual comparison
     out_dir = Path(f"{root}/10/test_time_adaptation")

@@ -73,8 +73,17 @@ def run_stress_test(model, dataset_name, shift_type, adapt_method=None, num_cont
     intensity_range = np.linspace(0.0, 2.0, 10)
     results = {"x": [], "nll": [], "mse": [], "ece": []}
     
-    DataClass = GPData if dataset_name == "gp" else SinusoidData
-    data_gen = DataClass(batch_size=16, num_context=num_context)
+    if dataset_name == "gp":
+        from .data import GPData
+        data_gen = GPData(batch_size=16, num_context=num_context)
+    elif dataset_name == "sinusoid":
+        from .data import SinusoidData
+        data_gen = SinusoidData(batch_size=16, num_context=num_context)
+    elif dataset_name == "uci":
+        from .data import UCIData
+        data_gen = UCIData(dataset_name="california", batch_size=16, num_context=num_context)
+    else:
+        raise ValueError(f"Unknown dataset {dataset_name}")
     
     for val in intensity_range:
         if shift_type == "noise":

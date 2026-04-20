@@ -68,10 +68,8 @@ def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_nois
         final_shift = denoiser(batch.context_x, batch.context_y)
         final_denoised_context = batch.context_y - final_shift
         out_after = model(batch.context_x, final_denoised_context, batch.target_x)
-        target_shift = denoiser(batch.target_x, out_after.mean)
-        final_mean = out_after.mean + target_shift
         
-    return final_mean, out_after.variance
+    return out_after.mean, out_after.variance
 
 
 def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0):
