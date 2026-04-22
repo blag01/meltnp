@@ -169,3 +169,82 @@ class SinusoidData(NPDataset):
             context_y_clean=context_y_clean,
             corruption_label=corruption_label
         )
+
+
+class UCIData(NPDataset):
+    """Loads a real UCI regression dataset and samples random rows to form NP batches."""
+    def __init__(
+        self,
+        dataset_name: str,
+        batch_size: int = 16,
+        num_context: int = 10,
+        num_target: int = 20,
+    ) -> None:
+        self.batch_size = batch_size
+        self.num_context = num_context
+        self.num_target = num_target
+        self.dataset_name = dataset_name
+        
+        from sklearn.datasets import fetch_california_housing
+        import numpy as np
+        
+        # Load the dataset
+        X, y = fetch_california_housing(return_X_y=True)
+            
+        # Normalize to zero mean, unit variance
+        X = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-8)
+        y = (y - y.mean()) / (y.std() + 1e-8)
+        
+        self.X = torch.tensor(X, dtype=torch.float32)
+        # Add dimension so y is [N, 1]
+        self.y = torch.tensor(y, dtype=torch.float32).unsqueeze(-1)
+        self.num_samples = len(self.X)
+        self.x_range = (-3.0, 3.0)
+
+    def generate_batch(self, corruption_fn=None, context_x_range=None) -> NPBatch:
+        total_points = self.num_context + self.num_target
+        
+        c_x_list = []
+        c_y_list = []
+        t_x_list = []
+        t_y_list = []
+        
+        for b in range(self.batch_size):
+            # Sample random indices from the dataset for this batch element
+            idx = torch.randperm(self.num_samples)[:total_points]
+            
+            ctx_idx = idx[:self.num_context]
+            tgt_idx = idx[self.num_context:]
+            
+            if context_x_range is not None:
+                # If covariate shift is requested, we need context points whose feature 0 is in range
+                valid_mask = (self.X[:, 0] >= context_x_range[0]) & (self.X[:, 0] <= context_x_range[1])
+                valid_idx = torch.where(valid_mask)[0]
+                if len(valid_idx) >= self.num_context:
+                    ctx_idx = valid_idx[torch.randperm(len(valid_idx))[:self.num_context]]
+            
+            c_x_list.append(self.X[ctx_idx])
+            c_y_list.append(self.y[ctx_idx])
+            t_x_list.append(self.X[tgt_idx])
+            t_y_list.append(self.y[tgt_idx])
+            
+        context_x = torch.stack(c_x_list)
+        context_y = torch.stack(c_y_list)
+        target_x = torch.stack(t_x_list)
+        target_y = torch.stack(t_y_list)
+        
+        context_y_clean = context_y.clone()
+        if corruption_fn is not None:
+            context_y = corruption_fn(context_x, context_y)
+            corruption_label = "shifted"
+        else:
+            corruption_label = "clean"
+            
+        return NPBatch(
+            context_x=context_x,
+            context_y=context_y,
+            target_x=target_x,
+            target_y=target_y,
+            context_y_clean=context_y_clean,
+            corruption_label=corruption_label
+        )
