@@ -55,26 +55,32 @@ class EmpiricalNoisePrior(nn.Module):
         else:
             samples = np.loadtxt(data_path)
             
+        samples = torch.tensor(samples, dtype=torch.float32)
+        if samples.ndim == 1:
+            samples = samples.unsqueeze(-1) # [N, 1]
+            
         # Register as a buffer so it moves to GPU automatically if the model is moved
-        self.register_buffer("samples", torch.tensor(samples, dtype=torch.float32).flatten())
+        self.register_buffer("samples", samples) # [N, D]
         self.bandwidth = bandwidth
+        self.D = samples.shape[-1]
 
     def log_prob(self, shift: torch.Tensor) -> torch.Tensor:
         """Evaluates the non-parametric log probability of a shift and allows backpropagation."""
-        # shift: [Batch, Context, D] -> flattened to [M, 1]
-        flat_shift = shift.reshape(-1, 1)
+        # shift: [Batch, Context, D] -> flattened to [M, D]
+        flat_shift = shift.reshape(-1, self.D)
         
-        # Calculate squared distances against all empirical samples [M, N]
-        diff_sq = (flat_shift - self.samples.unsqueeze(0))**2 
+        # Calculate squared L2 distances against all empirical samples [M, N]
+        diff_sq = torch.sum((flat_shift.unsqueeze(1) - self.samples.unsqueeze(0))**2, dim=-1)
         
-        # Evaluate Gaussian kernel for KDE
+        # Evaluate Multivariate Gaussian kernel for KDE
         exponent = -0.5 * diff_sq / (self.bandwidth**2)
-        norm_const = self.bandwidth * math.sqrt(2 * math.pi)
+        norm_const = (self.bandwidth ** self.D) * math.sqrt((2 * math.pi) ** self.D)
         
         # LogSumExp gives numerical stability to the sum of kernel probabilities
         log_prob = torch.logsumexp(exponent, dim=1) - math.log(len(self.samples)) - math.log(norm_const)
         
-        return log_prob.view_as(shift)
+        # Return probability per spatial point: [Batch, Context]
+        return log_prob.view(shift.shape[:-1])
 
 
 def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0, noise_prior: nn.Module = None):
