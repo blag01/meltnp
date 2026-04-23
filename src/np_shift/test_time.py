@@ -7,6 +7,7 @@ and returns (mean, variance) predictions on the target set.
 import torch
 import torch.nn as nn
 from torch import optim
+import math
 from .data import NPBatch
 
 class DenoisingMLP(nn.Module):
@@ -30,7 +31,19 @@ def nll_loss(mean, var, target_y):
     """Gaussian NLL."""
     return (0.5 * torch.log(2 * torch.pi * var) + 0.5 * (target_y - mean)**2 / var).mean()
 
-def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0, noise_prior_std: float = None):
+
+class GaussianNoisePrior(nn.Module):
+    """A mathematical prior mapping a shift to its Gaussian log-probability."""
+    def __init__(self, stddev: float = 1.0):
+        super().__init__()
+        self.stddev = stddev
+
+    def log_prob(self, shift: torch.Tensor) -> torch.Tensor:
+        # Puts highest probability on 0, drops quadratically.
+        return -0.5 * (shift / self.stddev)**2 - math.log(self.stddev * math.sqrt(2 * math.pi))
+
+
+def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0, noise_prior: nn.Module = None):
     """Adapt via a learned denoising network. Returns (mean, variance)."""
     model.eval()
     
@@ -64,10 +77,10 @@ def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_nois
             loss = nll_loss(out.mean, out.variance, denoised_y_B)
             
             # Maximum A Posteriori (MAP) Inference: Inject explicit prior knowledge of the noise distribution
-            if noise_prior_std is not None:
-                # Add the negative log probability of an N(0, noise_prior_std^2) prior 
-                prior_penalty_A = 0.5 * (shift_A**2).mean() / (noise_prior_std**2)
-                prior_penalty_B = 0.5 * (shift_B**2).mean() / (noise_prior_std**2)
+            if noise_prior is not None:
+                # Maximize posterior = minimize NLL - log_prob(prior)
+                prior_penalty_A = -noise_prior.log_prob(shift_A).mean()
+                prior_penalty_B = -noise_prior.log_prob(shift_B).mean()
                 loss = loss + (prior_penalty_A + prior_penalty_B)
                 
             loss.backward()
