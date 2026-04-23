@@ -27,6 +27,16 @@ class DenoisingMLP(nn.Module):
         inputs = torch.cat([x, y], dim=-1)
         return self.net(inputs)
 
+class ConstantBiasDenoiser(nn.Module):
+    """A structurally constrained denoiser for correcting purely global sensor offsets."""
+    def __init__(self, target_dim: int = 1):
+        super().__init__()
+        self.global_bias = nn.Parameter(torch.zeros(target_dim))
+        
+    def forward(self, context_x, context_y):
+        # Ignores input variations, applies the identical learned shift to every point globally
+        return self.global_bias.expand_as(context_y)
+
 def nll_loss(mean, var, target_y):
     """Gaussian NLL."""
     return (0.5 * torch.log(2 * torch.pi * var) + 0.5 * (target_y - mean)**2 / var).mean()
@@ -83,12 +93,12 @@ class EmpiricalNoisePrior(nn.Module):
         return log_prob.view(shift.shape[:-1])
 
 
-def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0, noise_prior: nn.Module = None):
+def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0, noise_prior: nn.Module = None, denoiser_arch: nn.Module = None):
     """Adapt via a learned denoising network. Returns (mean, variance)."""
     model.eval()
     
     with torch.enable_grad():
-        denoiser = DenoisingMLP()
+        denoiser = denoiser_arch if denoiser_arch is not None else DenoisingMLP()
         optimizer = optim.Adam(denoiser.parameters(), lr=0.01)
 
         num_ctx = batch.context_x.size(1)
