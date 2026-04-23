@@ -46,7 +46,13 @@ def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_nois
         ctx_x_B = batch.context_x[:, split_idx:, :]
         ctx_y_B = batch.context_y[:, split_idx:, :]
 
-        for step in range(num_steps):
+        num_samples = 20 if sgld_noise_scale > 0.0 else 0
+        total_steps = num_steps + num_samples
+        
+        collected_means = []
+        collected_vars = []
+
+        for step in range(total_steps):
             optimizer.zero_grad()
             shift_A = denoiser(ctx_x_A, ctx_y_A)
             shift_B = denoiser(ctx_x_B, ctx_y_B)
@@ -63,13 +69,34 @@ def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_nois
                 with torch.no_grad():
                     for param in denoiser.parameters():
                         param.add_(torch.randn_like(param) * sgld_noise_scale)
+                        
+            # If we are in the collection phase, harvest the predictions
+            if step >= num_steps and sgld_noise_scale > 0.0:
+                with torch.no_grad():
+                    final_shift = denoiser(batch.context_x, batch.context_y)
+                    final_denoised_context = batch.context_y - final_shift
+                    out_after = model(batch.context_x, final_denoised_context, batch.target_x)
+                    collected_means.append(out_after.mean)
+                    collected_vars.append(out_after.variance)
 
-    with torch.no_grad():
-        final_shift = denoiser(batch.context_x, batch.context_y)
-        final_denoised_context = batch.context_y - final_shift
-        out_after = model(batch.context_x, final_denoised_context, batch.target_x)
+    # 1) Standard Optimization (Point Estimate)
+    if num_samples == 0:
+        with torch.no_grad():
+            final_shift = denoiser(batch.context_x, batch.context_y)
+            final_denoised_context = batch.context_y - final_shift
+            out_after = model(batch.context_x, final_denoised_context, batch.target_x)
+            
+        return out_after.mean, out_after.variance
         
-    return out_after.mean, out_after.variance
+    # 2) Bayesian MCMC (Mixture of Gaussians / Empirical Distribution)
+    else:
+        mu_stack = torch.stack(collected_means, dim=0) # [K, Batch, N, D]
+        var_stack = torch.stack(collected_vars, dim=0) # [K, Batch, N, D]
+        
+        # Law of Total Variance for a Mixture of equal-weight Gaussians
+        final_mean = mu_stack.mean(dim=0)
+        final_var = (var_stack + mu_stack**2).mean(dim=0) - final_mean**2
+        return final_mean, final_var
 
 
 def adapt_and_predict_reweight(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0):
