@@ -30,7 +30,7 @@ def nll_loss(mean, var, target_y):
     """Gaussian NLL."""
     return (0.5 * torch.log(2 * torch.pi * var) + 0.5 * (target_y - mean)**2 / var).mean()
 
-def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0):
+def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0, noise_prior_std: float = None):
     """Adapt via a learned denoising network. Returns (mean, variance)."""
     model.eval()
     
@@ -62,6 +62,14 @@ def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_nois
             
             out = model(ctx_x_A, denoised_y_A, ctx_x_B)
             loss = nll_loss(out.mean, out.variance, denoised_y_B)
+            
+            # Maximum A Posteriori (MAP) Inference: Inject explicit prior knowledge of the noise distribution
+            if noise_prior_std is not None:
+                # Add the negative log probability of an N(0, noise_prior_std^2) prior 
+                prior_penalty_A = 0.5 * (shift_A**2).mean() / (noise_prior_std**2)
+                prior_penalty_B = 0.5 * (shift_B**2).mean() / (noise_prior_std**2)
+                loss = loss + (prior_penalty_A + prior_penalty_B)
+                
             loss.backward()
             optimizer.step()
             
