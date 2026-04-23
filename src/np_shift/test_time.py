@@ -43,6 +43,40 @@ class GaussianNoisePrior(nn.Module):
         return -0.5 * (shift / self.stddev)**2 - math.log(self.stddev * math.sqrt(2 * math.pi))
 
 
+class EmpiricalNoisePrior(nn.Module):
+    """A purely data-driven, differentiable generative model built using Kernel Density Estimation (KDE)."""
+    def __init__(self, data_path: str, bandwidth: float = 0.5):
+        super().__init__()
+        import numpy as np
+        
+        # Load empirical noise samples collected by the researcher
+        if data_path.endswith('.npy'):
+            samples = np.load(data_path)
+        else:
+            samples = np.loadtxt(data_path)
+            
+        # Register as a buffer so it moves to GPU automatically if the model is moved
+        self.register_buffer("samples", torch.tensor(samples, dtype=torch.float32).flatten())
+        self.bandwidth = bandwidth
+
+    def log_prob(self, shift: torch.Tensor) -> torch.Tensor:
+        """Evaluates the non-parametric log probability of a shift and allows backpropagation."""
+        # shift: [Batch, Context, D] -> flattened to [M, 1]
+        flat_shift = shift.reshape(-1, 1)
+        
+        # Calculate squared distances against all empirical samples [M, N]
+        diff_sq = (flat_shift - self.samples.unsqueeze(0))**2 
+        
+        # Evaluate Gaussian kernel for KDE
+        exponent = -0.5 * diff_sq / (self.bandwidth**2)
+        norm_const = self.bandwidth * math.sqrt(2 * math.pi)
+        
+        # LogSumExp gives numerical stability to the sum of kernel probabilities
+        log_prob = torch.logsumexp(exponent, dim=1) - math.log(len(self.samples)) - math.log(norm_const)
+        
+        return log_prob.view_as(shift)
+
+
 def adapt_and_predict_mlp(model, batch: NPBatch, num_steps: int = 100, sgld_noise_scale: float = 0.0, noise_prior: nn.Module = None):
     """Adapt via a learned denoising network. Returns (mean, variance)."""
     model.eval()
